@@ -27,21 +27,6 @@ Checks: >
   misc-*,
   -misc-non-private-member-variables-in-classes
 
-CheckOptions:
-  - { key: readability-identifier-naming.NamespaceCase,                value: lower_case }
-  - { key: readability-identifier-naming.ClassCase,                    value: CamelCase }
-  - { key: readability-identifier-naming.StructCase,                   value: CamelCase }
-  - { key: readability-identifier-naming.FunctionCase,                 value: lower_case }
-  - { key: readability-identifier-naming.VariableCase,                 value: lower_case }
-  - { key: readability-identifier-naming.MemberCase,                   value: lower_case }
-  - { key: readability-identifier-naming.GlobalConstantCase,           value: UPPER_CASE }
-  - { key: readability-identifier-naming.ParameterCase,                value: lower_case }
-  - { key: readability-identifier-naming.EnumCase,                     value: CamelCase }
-  - { key: readability-identifier-naming.EnumConstantCase,            value: UPPER_CASE }
-  - { key: Google.BuildNamespacing,                                   value: 0 }
-  - { key: performance-unnecessary-value-param.AllowSmallTrivialTypes, value: 'true' }
-  - { key: modernize-use-auto.MinTypeNameLength,                       value: '5' }
-
 WarningsAsErrors: '*'
 HeaderFilterRegex: ''
 FormatStyle: none
