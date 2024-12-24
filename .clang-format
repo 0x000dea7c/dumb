@@ -25,8 +25,8 @@ AlignEscapedNewlines: Left
 AlignOperands: true
 AlignTrailingComments: true
 AllowShortBlocksOnASingleLine: false
-BinPackParameters: true
-BinPackArguments: true
+BinPackParameters: false
+BinPackArguments: false
 BraceWrapping:
   AfterClass: true
   AfterControlStatement: true
@@ -49,7 +49,6 @@ IncludeBlocks: Regroup
 IndentCaseLabels: false
 IndentPPDirectives: None
 IndentRequires: false
-IndentWidth: 4
 KeepEmptyLinesAtTheStartOfBlocks: false
 MacroBlockBegin: ''
 MacroBlockEnd: ''
@@ -72,3 +71,5 @@ SpaceBeforeRangeBasedForLoopColon: true
 SpaceInEmptyBlock: false
 Standard: c++17
 UseCRLF: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false

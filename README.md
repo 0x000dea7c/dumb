@@ -2,5 +2,6 @@
 
 ## TASKS
 
-- Understand how X11 works and write about it (high level overview)
-- Understand how hot reloading works and write about it
+- Refactor code
+- Write about: How to create a window and handle input using XCB
+- Write about: How to do hot reloading
