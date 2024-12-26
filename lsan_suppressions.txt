@@ -1,0 +1,2 @@
+leak:libSDL2
+leak:libnvidia

@@ -1,16 +1,22 @@
 #pragma once
 
 #include <cstdint>
+#include <cassert>
 #include <type_traits>
 
-using U0 = void;
-using I32 = int32_t;
-using U32 = uint32_t;
-using I64 = int64_t;
-using U64 = uint64_t;
-using U8 = uint8_t;
-using U16 = uint16_t;
-using I16 = int16_t;
+using U0  = void;
+using I32 = std::int32_t;
+using U32 = std::uint32_t;
+using I64 = std::int64_t;
+using U64 = std::uint64_t;
+using U8  = std::uint8_t;
+using U16 = std::uint16_t;
+using I16 = std::int16_t;
+using B32 = std::int32_t;
+
+#define global static
+#define internal static
+#define persistent static
 
 template <typename T> inline constexpr U64 array_count(T const& arr) noexcept
 {
