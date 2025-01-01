@@ -1,203 +1,113 @@
 #include "xcaliber.h"
-#include "xcaliber_keycodes.h"
+#include "xcaliber_linear_arena.h"
+#include <SDL3/SDL_render.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
-/* TEMP */
-static struct {
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint8_t a;
-} colour;
+static sdl_window_dimensions win_dims = { .width = 1920, .height = 1080 };
+static xcaliber_state state = { .running = true };
+static framebuffer fb;
+static linear_arena arena;
+static SDL_Window *window = NULL;
+static SDL_Renderer *renderer = NULL;
+static SDL_Texture *texture = NULL;
 
-static struct sdl_window_dimensions win_dims = { .width = 1920,
-						 .height = 1080 };
-static struct xcaliber_state state = { .running = true };
-static struct sdl_window win;
+static void panic_and_abort(char const *title, char const *msg)
+	__attribute__((noreturn));
 
-static int
-key_to_engine(int key)
+static void
+panic_and_abort(char const *title, char const *msg)
 {
-	switch (key) {
-	case SDLK_q:
-		return XCALIBER_KEY_Q;
-	case SDLK_w:
-		return XCALIBER_KEY_W;
-	case SDLK_e:
-		return XCALIBER_KEY_E;
-	case SDLK_r:
-		return XCALIBER_KEY_R;
-	case SDLK_t:
-		return XCALIBER_KEY_T;
-	case SDLK_y:
-		return XCALIBER_KEY_Y;
-	case SDLK_u:
-		return XCALIBER_KEY_U;
-	case SDLK_i:
-		return XCALIBER_KEY_I;
-	case SDLK_o:
-		return XCALIBER_KEY_O;
-	case SDLK_p:
-		return XCALIBER_KEY_P;
-	case SDLK_a:
-		return XCALIBER_KEY_A;
-	case SDLK_s:
-		return XCALIBER_KEY_S;
-	case SDLK_d:
-		return XCALIBER_KEY_D;
-	case SDLK_f:
-		return XCALIBER_KEY_F;
-	case SDLK_g:
-		return XCALIBER_KEY_G;
-	case SDLK_h:
-		return XCALIBER_KEY_H;
-	case SDLK_j:
-		return XCALIBER_KEY_J;
-	case SDLK_k:
-		return XCALIBER_KEY_K;
-	case SDLK_l:
-		return XCALIBER_KEY_L;
-	case SDLK_z:
-		return XCALIBER_KEY_Z;
-	case SDLK_x:
-		return XCALIBER_KEY_X;
-	case SDLK_c:
-		return XCALIBER_KEY_C;
-	case SDLK_v:
-		return XCALIBER_KEY_V;
-	case SDLK_b:
-		return XCALIBER_KEY_B;
-	case SDLK_n:
-		return XCALIBER_KEY_N;
-	case SDLK_m:
-		return XCALIBER_KEY_M;
-	case SDLK_1:
-		return XCALIBER_KEY_1;
-	case SDLK_2:
-		return XCALIBER_KEY_2;
-	case SDLK_3:
-		return XCALIBER_KEY_3;
-	case SDLK_4:
-		return XCALIBER_KEY_4;
-	case SDLK_5:
-		return XCALIBER_KEY_5;
-	case SDLK_6:
-		return XCALIBER_KEY_6;
-	case SDLK_7:
-		return XCALIBER_KEY_7;
-	case SDLK_8:
-		return XCALIBER_KEY_8;
-	case SDLK_9:
-		return XCALIBER_KEY_9;
-	case SDLK_ESCAPE:
-		return XCALIBER_KEY_ESC;
-	default:
-		return XCALIBER_KEY_UNHANDLED;
-	}
+	(void)fprintf(stderr, "%s - %s\n", title, msg);
+	SDL_Quit();
+	exit(EXIT_FAILURE);
+}
+
+void
+put_pixel(framebuffer *f, size_t c, size_t r,
+	  unsigned int colour) /* TODO: make colour a struct */
+{
+	/* formula to transform from 2D to the framebuffer: framebuffer's width * row(y) + col (x) */
+	/* https://youtu.be/bQBY9BM9g_Y?t=2463 */
+	f->pixels[f->width * r + c] = colour;
 }
 
 static void
-handle_key_press(int key)
+update(void)
 {
-	switch (key) {
-	case XCALIBER_KEY_ESC:
-		state.running = false;
-		break;
-	case XCALIBER_KEY_R:
-		colour.r = (colour.r + 1u) % 256u;
-		break;
-	case XCALIBER_KEY_G:
-		colour.g = (colour.g + 1u) % 256u;
-		break;
-	case XCALIBER_KEY_B:
-		colour.b = (colour.b + 1u) % 256u;
-		break;
-	case XCALIBER_KEY_A:
-		colour.a = (colour.a + 1u) % 256u;
-		break;
-	default:
-		break;
-	}
+	/* TODO: remember to use fixed time step size, not variable */
+	memset(fb.pixels, 0x00, fb.size);
+}
+
+static void
+render(void)
+{
+	SDL_UpdateTexture(texture, NULL, fb.pixels, (int)fb.pitch);
+	SDL_RenderClear(renderer);
+	SDL_RenderTexture(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
 }
 
 void
 run(void)
 {
-	while (state.running) {
-		SDL_Event event;
+	SDL_Event event;
 
+	while (state.running) {
 		/* Handle keyboard and mouse input */
 		while (SDL_PollEvent(&event)) {
-			if (event.type == SDL_QUIT) {
+			if (event.type == SDL_EVENT_QUIT) {
 				state.running = false;
 				break;
 			}
-			if (event.type == SDL_KEYDOWN ||
-			    event.type == SDL_KEYUP) {
-				int key = key_to_engine(event.key.keysym.sym);
-				bool pressed = event.type == SDL_KEYDOWN;
-
-				if (pressed) {
-					handle_key_press(key);
-				}
-			}
 		}
 
-		/* TODO: update. Don't need delta time because I'm using a fixed time step. */
-
-		/* Render */
-		SDL_SetRenderDrawColor(win.renderer, colour.r, colour.g,
-				       colour.b, colour.a);
-		SDL_RenderClear(win.renderer);
-		SDL_RenderPresent(win.renderer);
+		update();
+		render();
 	}
 }
 
 int
 main(void)
 {
-	SDL_Window *window = NULL;
-	SDL_Renderer *renderer = NULL;
-
-	colour.r = 0xFF;
-	colour.b = 0x00;
-	colour.b = 0x00;
-	colour.a = 0xFF;
-
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		(void)fprintf(stderr, "Couldn't initialise SDL: %s\n",
-			      SDL_GetError());
-		return EXIT_FAILURE;
+	/* FIXME: wrap around func? SDL initialisation */
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		panic_and_abort("SDL_Init", SDL_GetError());
 	}
 
-	window = SDL_CreateWindow("XCaliber", SDL_WINDOWPOS_CENTERED,
-			 SDL_WINDOWPOS_CENTERED, win_dims.width,
-			 win_dims.height, SDL_WINDOW_SHOWN);
-
-	if (!window) {
-		(void)fprintf(stderr, "Couldn't create window: %s\n",
-			      SDL_GetError());
-		goto cleanup;
+	if (!SDL_CreateWindowAndRenderer("XCaliber", win_dims.width,
+					 win_dims.height, 0, &window,
+					 &renderer)) {
+		panic_and_abort("SDL_CreateWindowAndRenderer", SDL_GetError());
 	}
 
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
+	SDL_SetRenderVSync(renderer, 1);
 
-	if (!renderer) {
-		(void)fprintf(stderr, "Couldn't create renderer: %s\n",
-			      SDL_GetError());
-		goto cleanup;
+	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+				    SDL_TEXTUREACCESS_STREAMING, win_dims.width,
+				    win_dims.height);
+	if (!texture) {
+		panic_and_abort("SDL_CreateTexture", SDL_GetError());
 	}
 
-	win.window = window;
-	win.renderer = renderer;
+	/* initialisation of game memory */
+	fb.width = (size_t)win_dims.width;
+	fb.height = (size_t)win_dims.height;
+	fb.pitch = fb.width * sizeof(uint32_t); /* FIXME: use fixed types */
+	fb.size = fb.width * fb.height * sizeof(fb.width);
+	unsigned char *buf = malloc(fb.size);
+	linear_arena_init(&arena, buf, fb.size);
 
+	fb.pixels = linear_arena_alloc(&arena, fb.size);
+	assert(fb.pixels);
+
+	/* run the app */
 	run();
 
-cleanup:
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
+	/* cleanup */
+	free(buf);
 	SDL_Quit();
 
 	return EXIT_SUCCESS;

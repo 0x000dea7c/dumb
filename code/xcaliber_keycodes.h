@@ -39,7 +39,7 @@ enum key_code
     XCALIBER_KEY_7,
     XCALIBER_KEY_8,
     XCALIBER_KEY_9,
-    
+
     XCALIBER_KEY_COUNT,
     XCALIBER_KEY_UNHANDLED
 };
