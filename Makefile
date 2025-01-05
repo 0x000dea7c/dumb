@@ -1,6 +1,6 @@
 CC               := gcc
 CC_FLAGS_WARN    := -Wall -Werror -Wextra -pedantic -Wformat -Wformat-security -Wconversion -Wshadow
-CC_FLAGS_DEBUG   := -O1 -ggdb3 -D_FORTIFY_SOURCE=2 -fsanitize=address,leak,undefined -fstack-clash-protection -fcf-protection=full
+CC_FLAGS_DEBUG   := -O1 -ggdb3 -D_FORTIFY_SOURCE=2 -fsanitize=address,leak,undefined -fstack-clash-protection -fcf-protection=full -fanalyzer
 CC_FLAGS_RELEASE := -O3 -g -ffast-math -funroll-loops -flto
 SOURCES          := $(wildcard code/*.c)
 OBJECTS          := $(SOURCES:code/%.c=obj/%.o)

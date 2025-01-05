@@ -1,4 +1,5 @@
-#pragma once
+#ifndef XCALIBER_KEYCODES_H
+#define XCALIBER_KEYCODES_H
 
 enum key_code
 {
@@ -43,3 +44,5 @@ enum key_code
     XCALIBER_KEY_COUNT,
     XCALIBER_KEY_UNHANDLED
 };
+
+#endif
