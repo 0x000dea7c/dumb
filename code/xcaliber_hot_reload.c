@@ -6,6 +6,17 @@
 #include <string.h>
 #include <dlfcn.h>
 
+/* FIXME: what is this shit? Understand! */
+union {
+    void *obj_ptr;
+    update_func func_ptr;
+} upd_tmp;
+
+union {
+    void *obj_ptr;
+    render_func func_ptr;
+} rend_tmp;
+
 bool hot_reload_init(hot_reload_lib_info *lib, char const* path)
 {
 	assert(strlen(path) != 0);
@@ -51,8 +62,11 @@ bool hot_reload_update(hot_reload_lib_info *lib)
 	}
 
 	/* look for symbols inside this library */
-	lib->update = *(update_func*) dlsym(lib->handle, "game_update");
-	lib->render = *(render_func*) dlsym(lib->handle, "game_render");
+	upd_tmp.obj_ptr = dlsym(lib->handle, "game_update");
+	rend_tmp.obj_ptr = dlsym(lib->handle, "game_render");
+
+	lib->update = upd_tmp.func_ptr;
+	lib->render = rend_tmp.func_ptr;
 
 	if (!lib->update || !lib->render) {
 		(void)fprintf(stderr, "couldn't find symbols for lib %s: %s\n", lib->path, dlerror());

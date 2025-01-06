@@ -3,9 +3,10 @@
 
 #include <time.h>
 #include <stdbool.h>
+#include "xcaliber.h"
 
-typedef void (*update_func)(float);
-typedef void (*render_func)(void);
+typedef void (*update_func)(game_ctx *ctx, float dt);
+typedef void (*render_func)(game_ctx *ctx);
 
 typedef struct {
 	void *handle; /* handle to the dynamic lib */

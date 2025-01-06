@@ -9,13 +9,11 @@
 
 static sdl_window_dimensions win_dims = { .width = 1920, .height = 1080 };
 static xcaliber_state state = { .running = true };
-static framebuffer fb;
 static linear_arena arena;
 static SDL_Window *window = NULL;
-static SDL_Renderer *renderer = NULL;
-static SDL_Texture *texture = NULL;
 static unsigned char *game_mem = NULL;
 static hot_reload_lib_info game_logic_lib;
+static game_ctx ctx;
 
 static void
 quit(void)
@@ -48,16 +46,16 @@ sdl_init(void)
 
 	if (!SDL_CreateWindowAndRenderer("XCaliber", win_dims.width,
 					 win_dims.height, 0, &window,
-					 &renderer)) {
+					 &ctx.renderer)) {
 		panic("SDL_CreateWindowAndRenderer", SDL_GetError());
 	}
 
-	SDL_SetRenderVSync(renderer, 1);
+	SDL_SetRenderVSync(ctx.renderer, 1);
 
-	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
-				    SDL_TEXTUREACCESS_STREAMING, win_dims.width,
-				    win_dims.height);
-	if (!texture) {
+	ctx.texture = SDL_CreateTexture(ctx.renderer, SDL_PIXELFORMAT_RGBA8888,
+					SDL_TEXTUREACCESS_STREAMING,
+					win_dims.width, win_dims.height);
+	if (!ctx.texture) {
 		panic("SDL_CreateTexture", SDL_GetError());
 	}
 }
@@ -76,17 +74,17 @@ game_mem_init(void)
 }
 
 static void
-framebuffer_init(void)
+game_ctx_init(void)
 {
-	fb.width = (uint32_t)win_dims.width;
-	fb.height = (uint32_t)win_dims.height;
-	fb.pitch = fb.width * sizeof(uint32_t);
-	fb.pixel_count = fb.width * fb.height;
-	fb.byte_size = fb.pixel_count * sizeof(uint32_t);
+	ctx.fb.width = (uint32_t)win_dims.width;
+	ctx.fb.height = (uint32_t)win_dims.height;
+	ctx.fb.pitch = ctx.fb.width * sizeof(uint32_t);
+	ctx.fb.pixel_count = ctx.fb.width * ctx.fb.height;
+	ctx.fb.byte_size = ctx.fb.pixel_count * sizeof(uint32_t);
 
 	/* ask the arena to get a chunk of memory */
-	fb.pixels = linear_arena_alloc(&arena, fb.byte_size);
-	if (!fb.pixels) {
+	ctx.fb.pixels = linear_arena_alloc(&arena, ctx.fb.byte_size);
+	if (!ctx.fb.pixels) {
 		panic("main linear arena alloc",
 		      "Couldn't get a chunk of memory for the framebuffer from the arena");
 	}
@@ -122,8 +120,8 @@ run(void)
 			}
 		}
 
-		game_logic_lib.update(dt);
-		game_logic_lib.render();
+		game_logic_lib.update(&ctx, dt);
+		game_logic_lib.render(&ctx);
 	}
 }
 
@@ -132,7 +130,7 @@ main(void)
 {
 	sdl_init();
 	game_mem_init();
-	framebuffer_init();
+	game_ctx_init();
 
 	if (!hot_reload_init(&game_logic_lib, "libgamelogic.so")) {
 		panic("hot_reload_init",

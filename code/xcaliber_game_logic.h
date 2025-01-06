@@ -9,9 +9,11 @@
    libraries with hidden visiblity and then being explicit about which
    functions should be visible or not. */
 
+#include "xcaliber.h"
+
 #define GAME_API __attribute__((visibility("default")))
 
-GAME_API void game_update(float dt);
-GAME_API void game_render(void);
+GAME_API void game_update(game_ctx *ctx, float dt);
+GAME_API void game_render(game_ctx *ctx);
 
 #endif

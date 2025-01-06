@@ -23,6 +23,12 @@ typedef struct {
 	uint32_t pitch; /* Or stride. Number of bytes between the start of one row of pixels to the next one. */
 } framebuffer;
 
+typedef struct {
+	framebuffer fb;
+	SDL_Texture *texture;
+	SDL_Renderer *renderer;
+} game_ctx;
+
 void run(void);
 
 #endif
