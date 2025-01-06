@@ -1,5 +1,6 @@
 #include "xcaliber.h"
 #include "xcaliber_common.h"
+#include "xcaliber_hot_reload.h"
 #include "xcaliber_linear_arena.h"
 #include <stdint.h>
 #include <stdlib.h>
@@ -14,9 +15,10 @@ static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture *texture = NULL;
 static unsigned char *game_mem = NULL;
+static hot_reload_lib_info game_logic_lib;
 
 static void
-cleanup(void)
+quit(void)
 {
 	if (game_mem) {
 		free(game_mem);
@@ -32,13 +34,13 @@ panic(char const *title, char const *msg)
 {
 	(void)fprintf(stderr, "%s - %s\n", title, msg);
 
-	cleanup();
+	quit();
 
 	exit(EXIT_FAILURE);
 }
 
 static void
-sdl_initialise(void)
+sdl_init(void)
 {
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		panic("SDL_Init", SDL_GetError());
@@ -61,7 +63,7 @@ sdl_initialise(void)
 }
 
 static void
-game_mem_initialise(void)
+game_mem_init(void)
 {
 	uint32_t const game_mem_len = MEGABYTES(512);
 
@@ -74,7 +76,7 @@ game_mem_initialise(void)
 }
 
 static void
-framebuffer_initialise(void)
+framebuffer_init(void)
 {
 	fb.width = (uint32_t)win_dims.width;
 	fb.height = (uint32_t)win_dims.height;
@@ -90,27 +92,10 @@ framebuffer_initialise(void)
 	}
 }
 
-static void
-update(void)
-{
-	uint32_t const red = 0xFF0000FF;
-	for (uint32_t i = 0; i < fb.pixel_count; ++i) {
-		fb.pixels[i] = red;
-	}
-	SDL_UpdateTexture(texture, NULL, fb.pixels, (int)fb.pitch);
-}
-
-static void
-render(void)
-{
-	SDL_RenderClear(renderer);
-	SDL_RenderTexture(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
-}
-
 void
 run(void)
 {
+	float const dt = 1.0f / 60.0f;
 	SDL_Event event;
 
 	while (state.running) {
@@ -128,27 +113,35 @@ run(void)
 				case SDLK_Q:
 					printf("Pressed Q!\n");
 					break;
+				case SDLK_R:
+					hot_reload_update(&game_logic_lib);
+					break;
 				default:
 					break;
 				}
 			}
 		}
 
-		update();
-		render();
+		game_logic_lib.update(dt);
+		game_logic_lib.render();
 	}
 }
 
 int
 main(void)
 {
-	sdl_initialise();
-	game_mem_initialise();
-	framebuffer_initialise();
+	sdl_init();
+	game_mem_init();
+	framebuffer_init();
+
+	if (!hot_reload_init(&game_logic_lib, "libgamelogic.so")) {
+		panic("hot_reload_init",
+		      "couldn't load game's logic shared library!");
+	}
 
 	run();
 
-	cleanup();
+	quit();
 
 	return EXIT_SUCCESS;
 }
