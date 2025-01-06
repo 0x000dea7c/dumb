@@ -1,52 +1,105 @@
 #include "xcaliber_hot_reload.h"
 #include <assert.h>
+#include <linux/limits.h>	/* NAME_MAX */
 #include <stdio.h>
-#include <sys/stat.h> /* FIXME: abstract this? */
 #include <errno.h>
+#include <sys/inotify.h>
+#include <sys/stat.h> /* FIXME: abstract this? */
 #include <string.h>
 #include <dlfcn.h>
+#include <unistd.h>
+
+/* FIXME: this global here? */
+hot_reload_watcher watcher;
 
 /* FIXME: what is this shit? Understand! */
 union {
-    void *obj_ptr;
-    update_func func_ptr;
+	void *obj_ptr;
+	update_func func_ptr;
 } upd_tmp;
 
 union {
-    void *obj_ptr;
-    render_func func_ptr;
+	void *obj_ptr;
+	render_func func_ptr;
 } rend_tmp;
 
-bool hot_reload_init(hot_reload_lib_info *lib, char const* path)
+static bool
+hot_reload_watcher_init(char const *path)
+{
+	watcher.libpath = path;
+
+	watcher.inotify_fd = inotify_init1(IN_NONBLOCK);
+	if (watcher.inotify_fd == -1) {
+		(void)fprintf(stderr, "couldn't initialise inotify: %s\n", strerror(errno));
+		return false;
+	}
+
+	watcher.watch_fd = inotify_add_watch(watcher.inotify_fd, watcher.libpath, IN_ALL_EVENTS);
+	if (watcher.watch_fd == -1) {
+		close(watcher.inotify_fd);
+		(void)fprintf(stderr, "couldn't add watch: %s\n", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+hot_reload_restart_watcher(void)
+{
+	if (inotify_rm_watch(watcher.inotify_fd, watcher.watch_fd) == -1) {
+		(void)fprintf(stderr, "couldn't remove watch: %s\n", strerror(errno));
+		return false;
+	}
+
+	return hot_reload_watcher_init(watcher.libpath);
+}
+
+bool
+hot_reload_init(hot_reload_lib_info *lib, char const *path)
 {
 	assert(strlen(path) != 0);
+
 	lib->path = path;
 	lib->handle = NULL;
-	lib->last_modified.tv_nsec = 0;
-	lib->last_modified.tv_sec = 0;
 	lib->render = NULL;
 	lib->update = NULL;
+
+	if (!hot_reload_watcher_init(path)) {
+		return false;
+	}
 
 	/* try to load the library */
 	return hot_reload_update(lib);
 }
 
-/* check for changes and update if necessary */
-bool hot_reload_update(hot_reload_lib_info *lib)
+bool
+hot_reload_lib_was_modified(void)
 {
-	struct stat attributes;
+	char buf[sizeof(struct inotify_event) + NAME_MAX + 1];
+	bool modified = false;
 
-	if (stat(lib->path, &attributes) != 0) {
-		(void)fprintf(stderr, "couldn't get status of lib %s: %s\n", lib->path, strerror(errno));
-		return false;
+	/* non blocking read, neat */
+	while (read(watcher.inotify_fd, buf, sizeof(buf)) > 0) {
+		struct inotify_event *ev = (struct inotify_event *)buf;
+		if (ev->mask & (IN_OPEN | IN_ATTRIB)) {
+			hot_reload_restart_watcher();
+			modified = true;
+			break;
+		}
 	}
 
-	/* no modification on lib, so it's updated */
-	if (attributes.st_mtim.tv_nsec <= lib->last_modified.tv_nsec) {
-		return true;
+	if (modified) {
+		/* don't try to open the new library immediately because it might have not been fully created yet! */
+		usleep(50000);
 	}
 
-	/* let's try to update */
+	return modified;
+}
+
+bool
+hot_reload_update(hot_reload_lib_info *lib)
+{
 	if (lib->handle) {
 		/* if the lib was opened, close it first */
 		dlclose(lib->handle);
@@ -55,9 +108,11 @@ bool hot_reload_update(hot_reload_lib_info *lib)
 		lib->update = NULL;
 	}
 
-	lib->handle = dlopen(lib->path, RTLD_NOW); /* FIXME: what is RTLD_NOW? */
+	/* RTLD_NOW: find all symbols immediately. I want to fail early.*/
+	lib->handle = dlopen(lib->path, RTLD_NOW);
 	if (!lib->handle) {
-		(void)fprintf(stderr, "couldn't open lib %s: %s\n", lib->path, dlerror());
+		(void)fprintf(stderr, "couldn't open lib %s: %s\n", lib->path,
+			      dlerror());
 		return false;
 	}
 
@@ -69,18 +124,21 @@ bool hot_reload_update(hot_reload_lib_info *lib)
 	lib->render = rend_tmp.func_ptr;
 
 	if (!lib->update || !lib->render) {
-		(void)fprintf(stderr, "couldn't find symbols for lib %s: %s\n", lib->path, dlerror());
+		(void)fprintf(stderr, "couldn't find symbols for lib %s: %s\n",
+			      lib->path, dlerror());
 		return false;
 	}
-
-	lib->last_modified = attributes.st_mtim;
 
 	return true;
 }
 
-void hot_reload_quit(hot_reload_lib_info *lib)
+void
+hot_reload_quit(hot_reload_lib_info *lib)
 {
 	if (lib->handle) {
 		dlclose(lib->handle);
 	}
+	inotify_rm_watch(watcher.inotify_fd, watcher.watch_fd);
+	close(watcher.inotify_fd);
+	close(watcher.watch_fd);
 }

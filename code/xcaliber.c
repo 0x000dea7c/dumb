@@ -97,6 +97,11 @@ run(void)
 	SDL_Event event;
 
 	while (state.running) {
+		/* check if the lib was modified, if so, reload it. This is non blocking! */
+		if (hot_reload_lib_was_modified()) {
+			hot_reload_update(&game_logic_lib);
+		}
+
 		while (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_QUIT) {
 				state.running = false;
@@ -110,9 +115,6 @@ run(void)
 					break;
 				case SDLK_Q:
 					printf("Pressed Q!\n");
-					break;
-				case SDLK_R:
-					hot_reload_update(&game_logic_lib);
 					break;
 				default:
 					break;
