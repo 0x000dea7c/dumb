@@ -7,7 +7,7 @@
 /* Symbols are public by default on GNU/Linux systems if I don't specify
    anything at compile time, but it's a good practice to compile shared
    libraries with hidden visiblity and then being explicit about which
-   functions should be visible or not. */
+   functions should be visible. */
 
 #include "xcaliber.h"
 

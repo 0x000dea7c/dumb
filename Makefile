@@ -35,10 +35,10 @@ obj/%.o: code/%.c
 # XXX: LD_LIBRARY_PATH is needed here because SDL3 installs in /usr/local/lib,
 # also add current directory for my shared library.
 run:
-	LD_LIBRARY_PATH=LD_LIBRARY_PATH:/usr/local/lib:. LSAN_OPTIONS="suppressions=./lsan_suppressions.txt" ./xcaliber
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:/usr/local/lib:. LSAN_OPTIONS="suppressions=./lsan_suppressions.txt" ./xcaliber
 
 gdb:
-	LD_LIBRARY_PATH=LD_LIBRARY_PATH:/usr/local/lib:. LSAN_OPTIONS="suppressions=./lsan_suppressions.txt" gdb -q ./xcaliber
+	LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:/usr/local/lib:. LSAN_OPTIONS="suppressions=./lsan_suppressions.txt" gdb -q ./xcaliber
 
 clean:
 	rm -f $(TARGET) $(GAME_LIB)  obj/*.o

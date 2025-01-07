@@ -4,15 +4,12 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/inotify.h>
-#include <sys/stat.h> /* FIXME: abstract this? */
-#include <string.h>
 #include <dlfcn.h>
 #include <unistd.h>
 
 /* FIXME: this global here? */
 hot_reload_watcher watcher;
 
-/* FIXME: what is this shit? Understand! */
 union {
 	void *obj_ptr;
 	update_func func_ptr;
@@ -108,7 +105,7 @@ hot_reload_update(hot_reload_lib_info *lib)
 		lib->update = NULL;
 	}
 
-	/* RTLD_NOW: find all symbols immediately. I want to fail early.*/
+	/* RTLD_NOW: find all symbols immediately. I want to fail early */
 	lib->handle = dlopen(lib->path, RTLD_NOW);
 	if (!lib->handle) {
 		(void)fprintf(stderr, "couldn't open lib %s: %s\n", lib->path,
@@ -116,18 +113,28 @@ hot_reload_update(hot_reload_lib_info *lib)
 		return false;
 	}
 
+	/* NOTE: this is to check for errors, read the man page */
+	dlerror();
+
 	/* look for symbols inside this library */
 	upd_tmp.obj_ptr = dlsym(lib->handle, "game_update");
+	char *err = dlerror();
+	if (err) {
+		(void)fprintf(stderr, "couldn't game_update symbol for lib %s: %s\n", lib->path, err);
+		return false;
+	}
+
+	dlerror();
+
 	rend_tmp.obj_ptr = dlsym(lib->handle, "game_render");
+	err = dlerror();
+	if (err) {
+		(void)fprintf(stderr, "couldn't game_render symbol for lib %s: %s\n", lib->path, err);
+		return false;
+	}
 
 	lib->update = upd_tmp.func_ptr;
 	lib->render = rend_tmp.func_ptr;
-
-	if (!lib->update || !lib->render) {
-		(void)fprintf(stderr, "couldn't find symbols for lib %s: %s\n",
-			      lib->path, dlerror());
-		return false;
-	}
 
 	return true;
 }
