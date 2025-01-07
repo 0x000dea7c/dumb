@@ -37,8 +37,8 @@ Game inspired by XCaliber from TempleOS.
 - X Render a black red window from scratch. (using my own framebuffer)
 - X Study what you just did. Write about it on your website.
 - X Refactor a bit before doing hot reloading.
-- Prepare hot reloading code. Investigate how it works, that is to say, if I save a file, is there a way for files to recompile automatically and see changes instantly?
-- Study what you just did. Write about it on your website.
+- X Prepare hot reloading code. Investigate how it works, that is to say, if I save a file, is there a way for files to recompile automatically and see changes instantly?
+- X Study what you just did. Write about it on your website.
 - Is there a problem in relying on VSYNC? Investigate. If yes, try to handle the time spent in a frame manually.
 - Use double buffers to avoid tearing!
 - Prepare function to draw lines (projectiles), squares (idk yet), circles (plasma bombs), triangles (entities and everything else). Study them.
