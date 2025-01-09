@@ -39,8 +39,27 @@ Game inspired by XCaliber from TempleOS.
 - X Refactor a bit before doing hot reloading.
 - X Prepare hot reloading code. Investigate how it works, that is to say, if I save a file, is there a way for files to recompile automatically and see changes instantly?
 - X Study what you just did. Write about it on your website.
-- Is there a problem in relying on VSYNC? Investigate. If yes, try to handle the time spent in a frame manually.
-- Use double buffers to avoid tearing!
+- X Is there a problem in relying on VSYNC? Investigate. If yes, try to handle the time spent in a frame manually.
+  - Frame skipping: when VSync is enabled and I miss a refresh window (1/60 or 1/144 or 1/240), I have to wait for the next refresh cycle. VSync works with complete frames, not partial ones. FPS drop.
+  - When a window is missed, the monitor shows the previous frame again.
+  - Say I have a piece of code that is using a fixed time step of 1/60:
+    - If I use a monitor of 30Hz and I have VSync enabled:
+      - Each update would move entities by velocity * 1/60
+      - But I'm updating at 1/30, 30Hz
+      - So the game would be processed at half speed
+    - If I have uncapped framerate (no VSync):
+      - If FPS are 120, I'm processing 120 frames per second, but the update is still using 1/60 at the timestep!
+      - So the game would be running at 2x speed
+    - Frame drops (and VSync enabled):
+      - Suppose the game frame takes 32ms instead of 16.67ms.
+      - I still use 1/60 as the timestep
+      - But, in this case, I'm updating less frequently!
+      - The result would be jerky motion AND!!! incorrect physics!
+- Implement a hybrid approach (for now):
+  - Fixed timestep physics/logic loop: ensure they remain consistent regardless of frame rate.
+  - Keep VSync enabled initially, it helps with tearing and power consumption (who cares about this one, lol).
+  - Add a flag/func to toggle VSync.
+  - Create a function to keep monitor performance, show a message somewhere if it's running slow.
 - Prepare function to draw lines (projectiles), squares (idk yet), circles (plasma bombs), triangles (entities and everything else). Study them.
-- Leverage AVX2 or investigate how to use it. Also intrinsics or ASM.
+- Leverage AVX2 or investigate how to use it. Also ASM.
 - Use a fixed time step for physics, not variable. Render as fast as possible, but interpolate.
