@@ -55,7 +55,7 @@ Game inspired by XCaliber from TempleOS.
       - I still use 1/60 as the timestep
       - But, in this case, I'm updating less frequently!
       - The result would be jerky motion AND!!! incorrect physics!
-- Implement a hybrid approach (for now):
+- X Implement a hybrid approach (for now):
   - Fixed timestep physics/logic loop: ensure they remain consistent regardless of frame rate.
   - Keep VSync enabled initially, it helps with tearing and power consumption (who cares about this one, lol).
   - Add a flag/func to toggle VSync.

@@ -6,15 +6,6 @@
 #include <stdint.h>
 
 typedef struct {
-	int32_t width;
-	int32_t height;
-} sdl_window_dimensions;
-
-typedef struct {
-	bool running;
-} xcaliber_state;
-
-typedef struct {
 	uint32_t *pixels;
 	uint32_t pixel_count;
 	uint32_t byte_size;
@@ -27,7 +18,19 @@ typedef struct {
 	framebuffer fb;
 	SDL_Texture *texture;
 	SDL_Renderer *renderer;
+	uint64_t last_frame_time;
+	float fixed_timestep;
+	float physics_accumulator;
+	float alpha;
+	bool running;
 } game_ctx;
+
+typedef struct {
+	float target_fps;
+	uint32_t window_width;
+	uint32_t window_height;
+	bool vsync;
+} game_cfg;
 
 void run(void);
 

@@ -13,7 +13,7 @@
 
 #define GAME_API __attribute__((visibility("default")))
 
-GAME_API void game_update(game_ctx *ctx, float dt);
+GAME_API void game_update(game_ctx *ctx);
 GAME_API void game_render(game_ctx *ctx);
 
 #endif
