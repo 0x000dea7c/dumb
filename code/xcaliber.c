@@ -81,10 +81,10 @@ sdl_init(void)
 static void
 game_cfg_init(void)
 {
-	cfg.window_width = 1920;
-	cfg.window_height = 1080;
+	cfg.window_width = 1024;
+	cfg.window_height = 768;
 	cfg.target_fps = FIXED_TIMESTEP;
-	cfg.vsync = true;
+	cfg.vsync = false;
 }
 
 static void
@@ -108,6 +108,7 @@ game_ctx_init(void)
 	ctx.fb.pitch = ctx.fb.width * sizeof(uint32_t);
 	ctx.fb.pixel_count = ctx.fb.width * ctx.fb.height;
 	ctx.fb.byte_size = ctx.fb.pixel_count * sizeof(uint32_t);
+	ctx.fb.simd_chunks = ctx.fb.pixel_count / 8; /* assumming AVX2 processor */
 
 	/* ask the arena to get a chunk of memory */
 	ctx.fb.pixels = linear_arena_alloc(&arena, ctx.fb.byte_size);
@@ -121,7 +122,10 @@ game_ctx_init(void)
 	ctx.alpha = 0.0f;
 	ctx.running = true;
 	ctx.last_frame_time = SDL_GetTicks();
-	SDL_SetRenderVSync(ctx.renderer, 1);
+
+	if (cfg.vsync) {
+		SDL_SetRenderVSync(ctx.renderer, 1);
+	}
 }
 
 static void
@@ -135,10 +139,11 @@ toggle_vsync(void)
 void
 run(void)
 {
-	uint64_t last_fps_update = SDL_GetTicks();
-	uint32_t frame_count = 0;
+	uint64_t frame_count = 0, last_time = SDL_GetTicks();
+	uint64_t fps_update_time = last_time;
 	float current_fps = 0.0f;
 	SDL_Event event;
+	char title[32];
 
 	while (ctx.running) {
 		/* check if the lib was modified, if so, reload it. This is non blocking! */
@@ -147,13 +152,23 @@ run(void)
 		}
 
 		uint64_t const current_time = SDL_GetTicks();
-		float frame_time = (float)(current_time - ctx.last_frame_time) / 1000.0f;
-		ctx.last_frame_time = current_time;
+		float frame_time = (float)(current_time - last_time) / 1000.0f;
+		last_time = current_time;
 
 		/* Cap max frame rate, avoid spiral of death, that is to say, constantly trying to catch up
 		 if I miss a deadline */
 		if (frame_time > 0.25f) {
 			frame_time = 0.25f;
+		}
+
+		/* FPS display every second */
+		uint64_t const time_since_fps_update = current_time - fps_update_time;
+		if (time_since_fps_update > 1000) {
+			current_fps = (float)frame_count * 1000.0f / (float)time_since_fps_update;
+			(void)snprintf(title, sizeof(title), "X-Caliber FPS: %.2f", current_fps);
+			SDL_SetWindowTitle(window, title);
+			frame_count = 0;
+			fps_update_time = current_time;
 		}
 
 		ctx.physics_accumulator += frame_time;
@@ -192,19 +207,7 @@ run(void)
 		ctx.alpha = ctx.physics_accumulator / ctx.fixed_timestep;
 		game_logic_lib.render(&ctx);
 
-		/* FPS display. It will be updated every second */
 		++frame_count;
-		uint64_t current_fps_time = SDL_GetTicks();
-		float const time_since_last_fps_update =
-			((float)(current_fps_time - last_fps_update)) / 1000.0f;
-		if (time_since_last_fps_update > 1.0f) {
-			char title[32];
-			current_fps =
-				(float)frame_count / time_since_last_fps_update;
-			(void)snprintf(title, sizeof(title),
-				       "X-Caliber FPS: %.2f", current_fps);
-			SDL_SetWindowTitle(window, title);
-		}
 	}
 }
 

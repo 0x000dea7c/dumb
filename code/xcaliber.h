@@ -12,6 +12,7 @@ typedef struct {
 	uint32_t width;
 	uint32_t height;
 	uint32_t pitch; /* Or stride. Number of bytes between the start of one row of pixels to the next one. */
+	uint64_t simd_chunks;
 } framebuffer;
 
 typedef struct {
