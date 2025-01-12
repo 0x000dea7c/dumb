@@ -5,7 +5,7 @@
 #include "xcaliber.h"
 
 /* function pointers that act as an interface between the main program and the shared lib */
-typedef void (*update_func)(game_ctx *ctx, float dt);
+typedef void (*update_func)(game_ctx *ctx);
 typedef void (*render_func)(game_ctx *ctx);
 
 typedef struct {

@@ -55,11 +55,13 @@ Game inspired by XCaliber from TempleOS.
       - I still use 1/60 as the timestep
       - But, in this case, I'm updating less frequently!
       - The result would be jerky motion AND!!! incorrect physics!
-- Implement a hybrid approach (for now):
+- X Implement a hybrid approach (for now):
   - Fixed timestep physics/logic loop: ensure they remain consistent regardless of frame rate.
   - Keep VSync enabled initially, it helps with tearing and power consumption (who cares about this one, lol).
   - Add a flag/func to toggle VSync.
   - Create a function to keep monitor performance, show a message somewhere if it's running slow.
+- X Try some SIMD/ASM to draw colours.
+- X Use a fixed time step for physics, not variable. Render as fast as possible, but interpolate.
+- Parametrise AVX2 / SSE. If the user doesn't even have SSE support, then unlucky.
 - Prepare function to draw lines (projectiles), squares (idk yet), circles (plasma bombs), triangles (entities and everything else). Study them.
 - Leverage AVX2 or investigate how to use it. Also ASM.
-- Use a fixed time step for physics, not variable. Render as fast as possible, but interpolate.
