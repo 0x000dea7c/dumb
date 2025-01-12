@@ -9,9 +9,9 @@ typedef struct {
 	uint32_t *pixels;
 	uint32_t pixel_count;
 	uint32_t byte_size;
-	uint32_t width;
-	uint32_t height;
-	uint32_t pitch; /* Or stride. Number of bytes between the start of one row of pixels to the next one. */
+	int32_t width;
+	int32_t height;
+	int32_t pitch; /* Or stride. Number of bytes between the start of one row of pixels to the next one. */
 	uint64_t simd_chunks;
 } framebuffer;
 
@@ -28,8 +28,8 @@ typedef struct {
 
 typedef struct {
 	float target_fps;
-	uint32_t window_width;
-	uint32_t window_height;
+	int32_t window_width;
+	int32_t window_height;
 	bool vsync;
 } game_cfg;
 

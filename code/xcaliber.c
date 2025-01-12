@@ -105,8 +105,8 @@ game_ctx_init(void)
 {
 	ctx.fb.width = cfg.window_width;
 	ctx.fb.height = cfg.window_height;
-	ctx.fb.pitch = ctx.fb.width * sizeof(uint32_t);
-	ctx.fb.pixel_count = ctx.fb.width * ctx.fb.height;
+	ctx.fb.pitch = ctx.fb.width * (int32_t)sizeof(ctx.fb.width);
+	ctx.fb.pixel_count = (uint32_t)ctx.fb.width * (uint32_t)ctx.fb.height;
 	ctx.fb.byte_size = ctx.fb.pixel_count * sizeof(uint32_t);
 	ctx.fb.simd_chunks = ctx.fb.pixel_count / 8; /* assumming AVX2 processor */
 
@@ -208,7 +208,7 @@ run(void)
 		game_logic_lib.render(&ctx);
 
 		/* Copy my updated framebuffer to the GPU texture */
-		SDL_UpdateTexture(ctx.texture, NULL, ctx.fb.pixels, (int)ctx.fb.pitch);
+		SDL_UpdateTexture(ctx.texture, NULL, ctx.fb.pixels, ctx.fb.pitch);
 		SDL_RenderClear(ctx.renderer);
 		SDL_RenderTexture(ctx.renderer, ctx.texture, NULL, NULL);
 		SDL_RenderPresent(ctx.renderer);

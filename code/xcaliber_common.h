@@ -7,5 +7,7 @@
 #define MINIMUM(a, b) ((a) < (b) ? (a) : (b))
 #define MAXIMUM(a, b) ((a) > (b) ? (a) : (b))
 #define IS_POWER_OF_TWO(a) (((a) != 0) && ((a) & ((a) - 1)) == 0)
+#define SWAP(type,a,b) do{type SWAP_tmp= b; b= a; a= SWAP_tmp;}while(0)
+#define ABS(a) ((a) >= 0 ? (a) : (-(a)))
 
 #endif

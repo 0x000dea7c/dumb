@@ -1,10 +1,11 @@
 #include "xcaliber_game_logic.h"
 
 #include "xcaliber.h"
+#include "xcaliber_common.h"
 #include <SDL3/SDL.h>
 #include <stdio.h>
+#include <assert.h>
 
-/* FIXME: I don't want to use SDL here, this should be platform independent code. */
 GAME_API void
 game_update(__attribute__((unused)) game_ctx *ctx)
 {
@@ -17,23 +18,45 @@ r_draw_line(framebuffer *fb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
 {
 	/* how far I need to go in each direction */
 	int32_t dx = x1 - x0, dy = y1 - y0;
-	/* decision, helps me decide go horizontally or diagonally */
-	int32_t D = 2 * dy - dx;
-	int32_t y = y0;
+	bool steep = ABS(dy) > ABS(dx);
 
-	/* Walk along the X axis */
+	/* if the line is steep, step along y instead of x */
+	if (steep) {
+		/* swap x and y coords */
+		SWAP(int, x0, y0);
+		SWAP(int, x1, y1);
+	}
+
+	/* I'm going left, so swap */
+	if (x1 < x0) {
+		SWAP(int, x0, x1);
+		SWAP(int, y0, y1);
+	}
+
+	dx = x1 - x0;
+	dy = y1 - y0;
+
+	/* decision, helps me decide go horizontally or diagonally */
+	int32_t D = 2 * ABS(dy) - dx;
+	int32_t y = y0;
+	int32_t y_step = (dy < 0) ? -1 : 1;
+
 	for (int32_t x = x0; x <= x1; ++x) {
 		/* colourise pixel */
-		fb->pixels[y * (int32_t)fb->width + x] = colour;
+		if (steep) {
+			fb->pixels[x * fb->width + y] = colour;
+		} else {
+			fb->pixels[y * fb->width + x] = colour;
+		}
 
 		/* if D > 0, then I'm too far from the line, so I need to increment y */
 		/* D <= 0, then only move horizontally */
 		/* to remain in integer land I multiply by 2 */
 		if (D > 0) {
-			++y;
-			D += 2 * (dy - dx);
+			y += y_step;
+			D += 2 * (ABS(dy) - dx);
 		} else {
-			D += 2 * dy;
+			D += 2 * ABS(dy);
 		}
 	}
 }
@@ -80,5 +103,20 @@ game_render(game_ctx *ctx)
 		  "memory" /* tells the compiler which registers I'm using */
 	);
 
-	r_draw_line(&ctx->fb, 10, 10, 400, 400, line_colour);
+	/* L */
+	r_draw_line(&ctx->fb, 50, 100, 50, 400, line_colour);
+	r_draw_line(&ctx->fb, 50, 400, 200, 400, line_colour);
+
+	/* A */
+	r_draw_line(&ctx->fb, 320, 100, 220, 400, line_colour);
+	r_draw_line(&ctx->fb, 255, 300, 385, 300, line_colour);
+	r_draw_line(&ctx->fb, 320, 100, 420, 400, line_colour);
+
+	/* I */
+	r_draw_line(&ctx->fb, 440, 100, 440, 400, line_colour);
+
+	/* N */
+	r_draw_line(&ctx->fb, 520, 100, 520, 400, line_colour);
+	r_draw_line(&ctx->fb, 520, 100, 650, 400, line_colour);
+	r_draw_line(&ctx->fb, 650, 100, 650, 400, line_colour);
 }
