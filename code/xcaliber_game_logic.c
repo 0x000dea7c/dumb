@@ -3,8 +3,6 @@
 #include "xcaliber.h"
 #include "xcaliber_common.h"
 #include <SDL3/SDL.h>
-#include <stdio.h>
-#include <assert.h>
 
 GAME_API void
 game_update(__attribute__((unused)) game_ctx *ctx)
@@ -61,10 +59,19 @@ r_draw_line(framebuffer *fb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
 	}
 }
 
+static void
+r_draw_quad_outline(framebuffer *fb, int32_t x, int32_t y, int32_t width, int32_t height, uint32_t colour)
+{
+	r_draw_line(fb, x, y, x + width, y, colour);
+	r_draw_line(fb, x, y, x, y + height, colour);
+	r_draw_line(fb, x, y + height, x + width, y + height, colour);
+	r_draw_line(fb, x + width, y + height, x + width, y, colour);
+}
+
 GAME_API void
 game_render(game_ctx *ctx)
 {
-	uint32_t const bg_colour = 0x0020f0ff, line_colour = 0x1B1728FF;
+	uint32_t const bg_colour = 0x0020f0ff, line_colour = 0x1B1728FF, quad_colour = 0xFF0000FF;
 	uint32_t *pixels = ctx->fb.pixels;
 
 	/* Draw background as blue */
@@ -119,4 +126,6 @@ game_render(game_ctx *ctx)
 	r_draw_line(&ctx->fb, 520, 100, 520, 400, line_colour);
 	r_draw_line(&ctx->fb, 520, 100, 650, 400, line_colour);
 	r_draw_line(&ctx->fb, 650, 100, 650, 400, line_colour);
+
+	r_draw_quad_outline(&ctx->fb, 700, 500, 200, 200, quad_colour);
 }
