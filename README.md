@@ -62,6 +62,9 @@ Game inspired by XCaliber from TempleOS.
   - Create a function to keep monitor performance, show a message somewhere if it's running slow.
 - X Try some SIMD/ASM to draw colours.
 - X Use a fixed time step for physics, not variable. Render as fast as possible, but interpolate.
-- Parametrise AVX2 / SSE. If the user doesn't even have SSE support, then unlucky.
-- Prepare function to draw lines (projectiles), squares (idk yet), circles (plasma bombs), triangles (entities and everything else). Study them.
-- Leverage AVX2 or investigate how to use it. Also ASM.
+- X Draw primitives.
+- Refactor, add point structs to simplify function calls.
+- Refactor, create a renderer module with a decent API.
+- Add bound checking to framebuffer somehow.
+- Flood fill.
+- Parametrise AVX2 / SSE / SSE2.
