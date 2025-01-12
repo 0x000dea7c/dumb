@@ -207,6 +207,12 @@ run(void)
 		ctx.alpha = ctx.physics_accumulator / ctx.fixed_timestep;
 		game_logic_lib.render(&ctx);
 
+		/* Copy my updated framebuffer to the GPU texture */
+		SDL_UpdateTexture(ctx.texture, NULL, ctx.fb.pixels, (int)ctx.fb.pitch);
+		SDL_RenderClear(ctx.renderer);
+		SDL_RenderTexture(ctx.renderer, ctx.texture, NULL, NULL);
+		SDL_RenderPresent(ctx.renderer);
+
 		++frame_count;
 	}
 }
