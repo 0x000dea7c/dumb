@@ -4,13 +4,13 @@
 #include "xcaliber_renderer.h"
 #include <SDL3/SDL.h>
 
-GAME_API void
+XC_API void
 game_update(__attribute__((unused)) xc_ctx *ctx)
 {
 	/* Only game physics and logic! */
 }
 
-GAME_API void
+XC_API void
 game_render(xc_ctx *ctx)
 {
 	xcr_colour line_colour = { .r = 0x1B, .g = 0x17, .b = 0x28, .a = 0xFF };

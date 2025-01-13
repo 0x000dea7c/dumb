@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 /* FIXME: this global here? */
-hot_reload_watcher watcher;
+xc_hot_reload_watcher watcher;
 
 union {
 	void *obj_ptr;
@@ -53,7 +53,7 @@ hot_reload_restart_watcher(void)
 }
 
 bool
-hot_reload_init(hot_reload_lib_info *lib, char const *path)
+xc_hot_reload_init(xc_hot_reload_lib_info *lib, char const *path)
 {
 	assert(strlen(path) != 0);
 
@@ -67,11 +67,11 @@ hot_reload_init(hot_reload_lib_info *lib, char const *path)
 	}
 
 	/* try to load the library */
-	return hot_reload_update(lib);
+	return xc_hot_reload_update(lib);
 }
 
 bool
-hot_reload_lib_was_modified(void)
+xc_hot_reload_lib_was_modified(void)
 {
 	char buf[sizeof(struct inotify_event) + NAME_MAX + 1];
 	bool modified = false;
@@ -95,7 +95,7 @@ hot_reload_lib_was_modified(void)
 }
 
 bool
-hot_reload_update(hot_reload_lib_info *lib)
+xc_hot_reload_update(xc_hot_reload_lib_info *lib)
 {
 	if (lib->handle) {
 		/* if the lib was opened, close it first */
@@ -140,7 +140,7 @@ hot_reload_update(hot_reload_lib_info *lib)
 }
 
 void
-hot_reload_quit(hot_reload_lib_info *lib)
+xc_hot_reload_quit(xc_hot_reload_lib_info *lib)
 {
 	if (lib->handle) {
 		dlclose(lib->handle);

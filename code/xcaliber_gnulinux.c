@@ -20,7 +20,7 @@ static SDL_Renderer *sdl_renderer = NULL;
 /* my needed globals, hehe */
 static unsigned char *game_mem = NULL;
 static linear_arena arena;
-static hot_reload_lib_info game_logic_lib;
+static xc_hot_reload_lib_info game_logic_lib;
 static xc_ctx ctx;
 static xc_cfg cfg;
 static xc_framebuffer fb;
@@ -158,6 +158,14 @@ renderer_init(void)
 	}
 }
 
+static void
+hot_reload_init(void)
+{
+	if (!xc_hot_reload_init(&game_logic_lib, GAME_LOGIC_LIB_NAME)) {
+		panic("hot_reload_init", "couldn't load game's logic shared library!");
+	}
+}
+
 void
 run(void)
 {
@@ -169,8 +177,8 @@ run(void)
 
 	while (ctx.running) {
 		/* check if the lib was modified, if so, reload it. This is non blocking! */
-		if (hot_reload_lib_was_modified()) {
-			hot_reload_update(&game_logic_lib);
+		if (xc_hot_reload_lib_was_modified()) {
+			xc_hot_reload_update(&game_logic_lib);
 		}
 
 		uint64_t const current_time = SDL_GetTicks();
@@ -247,17 +255,14 @@ run(void)
 int
 main(void)
 {
+	/* if any of these fails, program panics */
 	cfg_init();
 	sdl_init();
 	mem_init();
 	ctx_init();
 	fb_init();
 	renderer_init();
-
-	if (!hot_reload_init(&game_logic_lib, GAME_LOGIC_LIB_NAME)) {
-		panic("hot_reload_init",
-		      "couldn't load game's logic shared library!");
-	}
+	hot_reload_init();
 
 	run();
 
