@@ -56,6 +56,6 @@ game_render(xc_ctx *ctx)
 		(xcr_colour){ .r = 0xA9, .g = 0x89, .b = 0x8D, .a = 0xFF });
 
 	xcr_draw_circle_outline(
-		ctx->renderer_ctx, (xcr_point){ .x = 300, .y = 500 }, 100,
+		ctx->renderer_ctx, (xcr_point){ .x = 200, .y = 500 }, 50,
 		(xcr_colour){ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
 }

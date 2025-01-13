@@ -4,16 +4,30 @@
 #include "xcaliber.h"
 #include "xcaliber_linear_arena.h"
 #include <stdio.h>
+#include <assert.h>
 
 struct xcr_context {
 	xc_framebuffer *fb;
 };
 
-static uint32_t
+static inline uint32_t
 xcr_colour_to_uint(xcr_colour c)
 {
 	return (uint32_t)(c.r) << 24 | (uint32_t)(c.g) << 16 |
 	       (uint32_t)(c.b) << 8 | (uint32_t)(c.a);
+}
+
+static inline void
+xcr_put_pixel(xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
+{
+#ifdef DEBUG
+	if (x < 0 || x > ctx->fb->width || y < 0 || y > ctx->fb->height) {
+		(void)fprintf(stderr, "x: %d, y: %d\n", x, y);
+		(void)fflush(stderr);
+		assert(false && "OUT OF BOUNDS FRAMEBUFFER UPDATE!!");
+	}
+#endif
+	ctx->fb->pixels[y * ctx->fb->width + x] = colour;
 }
 
 static inline
@@ -22,14 +36,15 @@ void plot_points(xcr_context *ctx, xcr_point center, xcr_point p, xcr_colour col
 	uint32_t c = xcr_colour_to_uint(colour);
 
 	/* each point I compute gives me 8 points on the circle (symmetry) */
-	ctx->fb->pixels[(center.y + p.y) * ctx->fb->width + (center.x + p.x)] = c; /* octant 1 */
-	ctx->fb->pixels[(center.y + p.x) * ctx->fb->width + (center.x + p.y)] = c; /* octant 2 */
-	ctx->fb->pixels[(center.y + p.x) * ctx->fb->width + (center.x - p.y)] = c; /* octant 3 */
-	ctx->fb->pixels[(center.y + p.y) * ctx->fb->width + (center.x - p.x)] = c; /* octant 4 */
-	ctx->fb->pixels[(center.y - p.y) * ctx->fb->width + (center.x - p.x)] = c; /* octant 5 */
-	ctx->fb->pixels[(center.y - p.x) * ctx->fb->width + (center.x - p.y)] = c; /* octant 6 */
-	ctx->fb->pixels[(center.y - p.x) * ctx->fb->width + (center.x + p.y)] = c; /* octant 7 */
-	ctx->fb->pixels[(center.y - p.y) * ctx->fb->width + (center.x + p.x)] = c; /* octant 8 */
+	xcr_put_pixel(ctx, (center.x + p.x), (center.y + p.y), c); /* octant 1 */
+	xcr_put_pixel(ctx, (center.x + p.y), (center.y + p.x), c); /* octant 2 */
+	xcr_put_pixel(ctx, (center.x - p.y), (center.y + p.x), c); /* octant 3 */
+	xcr_put_pixel(ctx, (center.x - p.x), (center.y + p.y), c); /* octant 4 */
+
+	xcr_put_pixel(ctx, (center.x - p.x), (center.y - p.y), c); /* octant 5 */
+	xcr_put_pixel(ctx, (center.x - p.y), (center.y - p.x), c); /* octant 6 */
+	xcr_put_pixel(ctx, (center.x + p.y), (center.y - p.x), c); /* octant 7 */
+	xcr_put_pixel(ctx, (center.x + p.x), (center.y - p.y), c); /* octant 8 */
 }
 
 xcr_context *
@@ -121,9 +136,9 @@ xcr_draw_line(xcr_context *ctx, xcr_point p0, xcr_point p1, xcr_colour colour)
 	for (int32_t x = p0.x; x <= p1.x; ++x) {
 		/* colourise pixel */
 		if (steep) {
-			ctx->fb->pixels[x * ctx->fb->width + y] = colour_fb;
+			xcr_put_pixel(ctx, y, x, colour_fb);
 		} else {
-			ctx->fb->pixels[y * ctx->fb->width + x] = colour_fb;
+			xcr_put_pixel(ctx, x, y, colour_fb);
 		}
 
 		/* if D > 0, then I'm too far from the line, so I need to increment y */
