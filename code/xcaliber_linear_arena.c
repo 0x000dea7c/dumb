@@ -15,7 +15,7 @@
 static uintptr_t
 align_forward(uintptr_t ptr, uint32_t align)
 {
-	assert(IS_POWER_OF_TWO(align) && "this ain't a power of 2");
+	assert(XC_IS_POWER_OF_TWO(align) && "this ain't a power of 2");
 	uintptr_t p = ptr, a = align;
 	uintptr_t mod = p & (a - 1); /* p % a, but faster */
 	if (mod != 0) {
@@ -48,7 +48,7 @@ static void *
 linear_arena_resize_align(linear_arena *a, void *old_m, uint32_t old_size,
 			  uint32_t new_size, uint32_t align)
 {
-	assert(IS_POWER_OF_TWO(align));
+	assert(XC_IS_POWER_OF_TWO(align));
 
 	unsigned char *old_mem = (unsigned char *)old_m;
 

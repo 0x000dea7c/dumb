@@ -2,34 +2,42 @@
 #include "xcaliber_common.h"
 #include "xcaliber_hot_reload.h"
 #include "xcaliber_linear_arena.h"
+#include "xcaliber_renderer.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
+#define XC_GAME_TOTAL_MEMORY XC_MEGABYTES(256ull)
 #define FIXED_TIMESTEP 1.0f / 60.0f
 #define GAME_LOGIC_LIB_NAME "libgamelogic.so"
 
-static linear_arena arena;
-static SDL_Window *window = NULL;
+/* SDL needed globals */
+static SDL_Window *sdl_window = NULL;
+static SDL_Texture *sdl_texture = NULL;
+static SDL_Renderer *sdl_renderer = NULL;
+
+/* my needed globals, hehe */
 static unsigned char *game_mem = NULL;
+static linear_arena arena;
 static hot_reload_lib_info game_logic_lib;
-static game_ctx ctx;
-static game_cfg cfg;
+static xc_ctx ctx;
+static xc_cfg cfg;
+static xc_framebuffer fb;
 
 static void
 quit(void)
 {
-	if (ctx.texture) {
-		SDL_DestroyTexture(ctx.texture);
+	if (sdl_texture) {
+		SDL_DestroyTexture(sdl_texture);
 	}
 
-	if (ctx.renderer) {
-		SDL_DestroyRenderer(ctx.renderer);
+	if (sdl_renderer) {
+		SDL_DestroyRenderer(sdl_renderer);
 	}
 
-	if (window) {
-		SDL_DestroyWindow(window);
+	if (sdl_window) {
+		SDL_DestroyWindow(sdl_window);
 	}
 
 	if (game_mem) {
@@ -58,39 +66,40 @@ sdl_init(void)
 		panic("SDL_Init", SDL_GetError());
 	}
 
-	window = SDL_CreateWindow("X-Caliber", (int32_t)cfg.window_width,
-				  (int32_t)cfg.window_height, 0);
-	if (!window) {
+	sdl_window = SDL_CreateWindow("X-Caliber", (int32_t)cfg.width,
+				  (int32_t)cfg.height, 0);
+	if (!sdl_window) {
 		panic("SDL_CreateWindow", SDL_GetError());
 	}
 
-	ctx.renderer = SDL_CreateRenderer(window, NULL);
-	if (!ctx.renderer) {
+	sdl_renderer = SDL_CreateRenderer(sdl_window, NULL);
+	if (!sdl_renderer) {
 		panic("SDL_CreateRenderer", SDL_GetError());
 	}
 
 	/* my framebuffer */
-	ctx.texture = SDL_CreateTexture(ctx.renderer, SDL_PIXELFORMAT_RGBA8888,
+	sdl_texture = SDL_CreateTexture(sdl_renderer, SDL_PIXELFORMAT_RGBA8888,
 					SDL_TEXTUREACCESS_STREAMING,
-					(int32_t)cfg.window_width, (int32_t)cfg.window_height);
-	if (!ctx.texture) {
+					(int32_t)cfg.width,
+					(int32_t)cfg.height);
+	if (!sdl_texture) {
 		panic("SDL_CreateTexture", SDL_GetError());
 	}
 }
 
 static void
-game_cfg_init(void)
+cfg_init(void)
 {
-	cfg.window_width = 1024;
-	cfg.window_height = 768;
+	cfg.width = 1024;
+	cfg.height = 768;
 	cfg.target_fps = FIXED_TIMESTEP;
 	cfg.vsync = false;
 }
 
 static void
-game_mem_init(void)
+mem_init(void)
 {
-	uint32_t const game_mem_len = MEGABYTES(512);
+	uint32_t const game_mem_len = XC_GAME_TOTAL_MEMORY;
 
 	game_mem = malloc(game_mem_len);
 	if (!game_mem) {
@@ -101,22 +110,9 @@ game_mem_init(void)
 }
 
 static void
-game_ctx_init(void)
+ctx_init(void)
 {
-	ctx.fb.width = cfg.window_width;
-	ctx.fb.height = cfg.window_height;
-	ctx.fb.pitch = ctx.fb.width * (int32_t)sizeof(ctx.fb.width);
-	ctx.fb.pixel_count = (uint32_t)ctx.fb.width * (uint32_t)ctx.fb.height;
-	ctx.fb.byte_size = ctx.fb.pixel_count * sizeof(uint32_t);
-	ctx.fb.simd_chunks = ctx.fb.pixel_count / 8; /* assumming AVX2 processor */
-
-	/* ask the arena to get a chunk of memory */
-	ctx.fb.pixels = linear_arena_alloc(&arena, ctx.fb.byte_size);
-	if (!ctx.fb.pixels) {
-		panic("main linear arena alloc",
-		      "Couldn't get a chunk of memory for the framebuffer from the arena");
-	}
-
+	ctx.renderer_ctx = NULL;
 	ctx.physics_accumulator = 0.0f;
 	ctx.fixed_timestep = FIXED_TIMESTEP;
 	ctx.alpha = 0.0f;
@@ -124,16 +120,42 @@ game_ctx_init(void)
 	ctx.last_frame_time = SDL_GetTicks();
 
 	if (cfg.vsync) {
-		SDL_SetRenderVSync(ctx.renderer, 1);
+		SDL_SetRenderVSync(sdl_renderer, 1);
 	}
 }
 
 static void
 toggle_vsync(void)
 {
-	SDL_SetRenderVSync(ctx.renderer, cfg.vsync ? 0 : 1);
+	SDL_SetRenderVSync(sdl_renderer, cfg.vsync ? 0 : 1);
 	cfg.vsync = !cfg.vsync;
 	printf("VSync value changed to: %d\n", cfg.vsync);
+}
+
+static void
+fb_init(void)
+{
+	fb.width = cfg.width;
+	fb.height = cfg.height;
+	fb.pitch = fb.width * (int32_t)sizeof(fb.width);
+	fb.pixel_count = (uint32_t)fb.width * (uint32_t)fb.height;
+	fb.byte_size = fb.pixel_count * sizeof(uint32_t);
+	/* FIXME: assumming AVX2 processor */
+	fb.simd_chunks = fb.pixel_count / 8;
+
+	fb.pixels = linear_arena_alloc(&arena, fb.byte_size);
+	if (!fb.pixels) {
+		panic("framebuffer init", "Couldn't allocate space for the framebuffer");
+	}
+}
+
+static void
+renderer_init(void)
+{
+	ctx.renderer_ctx = xcr_create(&arena, &fb);
+	if (!ctx.renderer_ctx) {
+		panic("renderer_init", "Couldn't create renderer");
+	}
 }
 
 void
@@ -162,11 +184,14 @@ run(void)
 		}
 
 		/* FPS display every second */
-		uint64_t const time_since_fps_update = current_time - fps_update_time;
+		uint64_t const time_since_fps_update =
+			current_time - fps_update_time;
 		if (time_since_fps_update > 1000) {
-			current_fps = (float)frame_count * 1000.0f / (float)time_since_fps_update;
-			(void)snprintf(title, sizeof(title), "X-Caliber FPS: %.2f", current_fps);
-			SDL_SetWindowTitle(window, title);
+			current_fps = (float)frame_count * 1000.0f /
+				      (float)time_since_fps_update;
+			(void)snprintf(title, sizeof(title),
+				       "X-Caliber FPS: %.2f", current_fps);
+			SDL_SetWindowTitle(sdl_window, title);
 			frame_count = 0;
 			fps_update_time = current_time;
 		}
@@ -208,10 +233,12 @@ run(void)
 		game_logic_lib.render(&ctx);
 
 		/* Copy my updated framebuffer to the GPU texture */
-		SDL_UpdateTexture(ctx.texture, NULL, ctx.fb.pixels, ctx.fb.pitch);
-		SDL_RenderClear(ctx.renderer);
-		SDL_RenderTexture(ctx.renderer, ctx.texture, NULL, NULL);
-		SDL_RenderPresent(ctx.renderer);
+		SDL_UpdateTexture(sdl_texture, NULL, fb.pixels, fb.pitch);
+
+		/* go render brr */
+		SDL_RenderClear(sdl_renderer);
+		SDL_RenderTexture(sdl_renderer, sdl_texture, NULL, NULL);
+		SDL_RenderPresent(sdl_renderer);
 
 		++frame_count;
 	}
@@ -220,10 +247,12 @@ run(void)
 int
 main(void)
 {
-	game_cfg_init();
+	cfg_init();
 	sdl_init();
-	game_mem_init();
-	game_ctx_init();
+	mem_init();
+	ctx_init();
+	fb_init();
+	renderer_init();
 
 	if (!hot_reload_init(&game_logic_lib, GAME_LOGIC_LIB_NAME)) {
 		panic("hot_reload_init",

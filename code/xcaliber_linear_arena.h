@@ -2,7 +2,6 @@
 #define XCALIBER_LINEAR_ARENA_H
 
 #include <stdint.h>
-#include <stdlib.h>
 
 typedef struct {
 	unsigned char *buf;
