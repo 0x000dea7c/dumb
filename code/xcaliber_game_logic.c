@@ -17,7 +17,7 @@ game_render(xc_ctx *ctx)
 
 	xcr_set_bg_colour(
 		ctx->renderer_ctx,
-		(xcr_colour){ .r = 0x00, .g = 0x00, .b = 0xFF, .a = 0xFF });
+		(xcr_colour){ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF });
 
 	/* L */
 	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 50, .y = 100 },

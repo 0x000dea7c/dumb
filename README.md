@@ -28,7 +28,8 @@ Game inspired by XCaliber from TempleOS.
 # Resources
 
 - https://github.com/xuwd1/rdtsc-notes
-- 
+- https://youtu.be/CceepU1vIKo
+- https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 
 # Tasks
 
@@ -63,8 +64,8 @@ Game inspired by XCaliber from TempleOS.
 - X Try some SIMD/ASM to draw colours.
 - X Use a fixed time step for physics, not variable. Render as fast as possible, but interpolate.
 - X Draw primitives.
-- Refactor, add point structs to simplify function calls.
-- Refactor, create a renderer module with a decent API.
-- Add bound checking to framebuffer somehow.
+- X Refactor, add point structs to simplify function calls.
+- X Refactor, create a renderer module with a decent API.
+- X Add bound checking to framebuffer somehow.
 - Flood fill.
 - Parametrise AVX2 / SSE / SSE2.
