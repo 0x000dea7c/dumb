@@ -30,21 +30,117 @@ xcr_put_pixel(xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 	ctx->fb->pixels[y * ctx->fb->width + x] = colour;
 }
 
-static inline
-void plot_points(xcr_context *ctx, xcr_point center, xcr_point p, xcr_colour colour)
+static inline void
+plot_points(xcr_context *ctx, xcr_point center, xcr_point p, xcr_colour colour)
 {
 	uint32_t c = xcr_colour_to_uint(colour);
 
 	/* each point I compute gives me 8 points on the circle (symmetry) */
-	xcr_put_pixel(ctx, (center.x + p.x), (center.y + p.y), c); /* octant 1 */
-	xcr_put_pixel(ctx, (center.x + p.y), (center.y + p.x), c); /* octant 2 */
-	xcr_put_pixel(ctx, (center.x - p.y), (center.y + p.x), c); /* octant 3 */
-	xcr_put_pixel(ctx, (center.x - p.x), (center.y + p.y), c); /* octant 4 */
 
-	xcr_put_pixel(ctx, (center.x - p.x), (center.y - p.y), c); /* octant 5 */
-	xcr_put_pixel(ctx, (center.x - p.y), (center.y - p.x), c); /* octant 6 */
-	xcr_put_pixel(ctx, (center.x + p.y), (center.y - p.x), c); /* octant 7 */
-	xcr_put_pixel(ctx, (center.x + p.x), (center.y - p.y), c); /* octant 8 */
+	/* octant 1 */
+	xcr_put_pixel(ctx, (center.x + p.x), (center.y + p.y), c);
+	/* octant 2 */
+	xcr_put_pixel(ctx, (center.x + p.y), (center.y + p.x), c);
+	/* octant 3 */
+	xcr_put_pixel(ctx, (center.x - p.y), (center.y + p.x), c);
+	/* octant 4 */
+	xcr_put_pixel(ctx, (center.x - p.x), (center.y + p.y), c);
+
+	/* octant 5 */
+	xcr_put_pixel(ctx, (center.x - p.x), (center.y - p.y), c);
+	/* octant 6 */
+	xcr_put_pixel(ctx, (center.x - p.y), (center.y - p.x), c);
+	/* octant 7 */
+	xcr_put_pixel(ctx, (center.x + p.y), (center.y - p.x), c);
+	/* octant 8 */
+	xcr_put_pixel(ctx, (center.x + p.x), (center.y - p.y), c);
+}
+
+static inline void
+draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
+			       xcr_colour colour, int32_t dx, int32_t dy,
+			       int32_t dy_abs)
+{
+	uint32_t const colour_fb = xcr_colour_to_uint(colour);
+
+	if (p1.x < p0.x) {
+		XC_SWAP(int, p0.x, p1.x);
+		XC_SWAP(int, p0.y, p1.y);
+		dx = p1.x - p0.x;
+		dy = p1.y - p0.y;
+		dy_abs = XC_ABS(dy);
+	}
+
+	/* TODO: this is not exactly like drawing vertically, the way xcr_put_pixel is called is different */
+	int32_t D = 2 * dy - dx;
+	int32_t y = p0.y;
+	int32_t y_step = (dy < 0) ? -1 : 1;
+
+	for (int32_t x = p0.x; x <= p1.x; ++x) {
+		xcr_put_pixel(ctx, x, y, colour_fb);
+
+		if (D > 0) {
+			y += y_step;
+			D += 2 * (dy_abs - dx);
+		} else {
+			D += 2 * dy_abs;
+		}
+	}
+}
+
+static inline void
+draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
+			     xcr_colour colour, int32_t dx, int32_t dy,
+			     int32_t dy_abs)
+{
+	uint32_t const colour_fb = xcr_colour_to_uint(colour);
+
+	XC_SWAP(int, p0.x, p0.y);
+	XC_SWAP(int, p1.x, p1.y);
+
+	if (p1.x < p0.x) {
+		XC_SWAP(int, p0.x, p1.x);
+		XC_SWAP(int, p0.y, p1.y);
+	}
+
+	dx = p1.x - p0.x;
+	dy = p1.y - p0.y;
+	dy_abs = XC_ABS(dy);
+
+	/* TODO: this is not exactly like drawing horizontally, the way xcr_put_pixel is called is different */
+	int32_t D = 2 * dy - dx;
+	int32_t y = p0.y;
+	int32_t y_step = (dy < 0) ? -1 : 1;
+
+	for (int32_t x = p0.x; x <= p1.x; ++x) {
+		xcr_put_pixel(ctx, y, x, colour_fb);
+
+		if (D > 0) {
+			y += y_step;
+			D += 2 * (dy_abs - dx);
+		} else {
+			D += 2 * dy_abs;
+		}
+	}
+}
+
+static inline void
+draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
+		    xcr_colour colour)
+{
+	int32_t dx = p1.x - p0.x;
+	int32_t dy = p1.y - p0.y;
+	int32_t dy_abs = XC_ABS(dx);
+	int32_t dx_abs = XC_ABS(dx);
+	bool steep = dy_abs > dx_abs;
+
+	if (steep) {
+		draw_vertical_line_bresenham(ctx, p0, p1, colour, dx, dy,
+					     dy_abs);
+	} else {
+		draw_horizontal_line_bresenham(ctx, p0, p1, colour, dx, dy,
+					       dy_abs);
+	}
 }
 
 xcr_context *
@@ -107,70 +203,18 @@ xcr_set_bg_colour(xcr_context *ctx, xcr_colour colour)
 void
 xcr_draw_line(xcr_context *ctx, xcr_point p0, xcr_point p1, xcr_colour colour)
 {
-	/* how far I need to go in each direction */
-	int32_t dx = p1.x - p0.x, dy = p1.y - p0.y;
-	bool steep = XC_ABS(dy) > XC_ABS(dx);
-
-	/* if the line is steep, step along y instead of x */
-	if (steep) {
-		/* swap x and y coords */
-		XC_SWAP(int, p0.x, p0.y);
-		XC_SWAP(int, p1.x, p1.y);
-	}
-
-	/* I'm going left, so swap */
-	if (p1.x < p0.x) {
-		XC_SWAP(int, p0.x, p1.x);
-		XC_SWAP(int, p0.y, p1.y);
-	}
-
-	dx = p1.x - p0.x;
-	dy = p1.y - p0.y;
-
-	/* decision, helps me decide go horizontally or diagonally */
-	int32_t D = 2 * XC_ABS(dy) - dx;
-	int32_t y = p0.y;
-	int32_t y_step = (dy < 0) ? -1 : 1;
-	uint32_t colour_fb = xcr_colour_to_uint(colour);
-
-	for (int32_t x = p0.x; x <= p1.x; ++x) {
-		/* colourise pixel */
-		if (steep) {
-			xcr_put_pixel(ctx, y, x, colour_fb);
-		} else {
-			xcr_put_pixel(ctx, x, y, colour_fb);
-		}
-
-		/* if D > 0, then I'm too far from the line, so I need to increment y */
-		/* D <= 0, then only move horizontally */
-		/* to remain in integer land I multiply by 2 */
-		if (D > 0) {
-			y += y_step;
-			D += 2 * (XC_ABS(dy) - dx);
-		} else {
-			D += 2 * XC_ABS(dy);
-		}
-	}
+	draw_line_bresenham(ctx, p0, p1, colour);
 }
 
 void
 xcr_draw_quad_outline(xcr_context *ctx, xcr_point p0, int32_t width,
 		      int32_t height, xcr_colour colour)
 {
-	xcr_point p1 = {
-		.x = p0.x,
-		.y = p0.y + height
-	};
+	xcr_point p1 = { .x = p0.x, .y = p0.y + height };
 
-	xcr_point p2 = {
-		.x = p0.x + width,
-		.y = p0.y
-	};
+	xcr_point p2 = { .x = p0.x + width, .y = p0.y };
 
-	xcr_point p3 = {
-		.x = p0.x + width,
-		.y = p0.y + height
-	};
+	xcr_point p3 = { .x = p0.x + width, .y = p0.y + height };
 
 	xcr_draw_line(ctx, p0, p2, colour);
 	xcr_draw_line(ctx, p0, p1, colour);
@@ -191,10 +235,10 @@ void
 xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
 			xcr_colour colour)
 {
+	/* start at the top! */
 	xcr_point curr = { .x = 0, .y = r };
 	int32_t D = 3 - (2 * r);
 
-	/* draw first set of points */
 	plot_points(ctx, center, curr, colour);
 
 	while (curr.y > curr.x) {
