@@ -25,6 +25,10 @@ Game inspired by XCaliber from TempleOS.
 - Comments explain why, not what.
 - Optimise for clarity first, then if needed for performance.
 
+# Current Screenshot
+
+[<img src="current.png">]
+
 # Resources
 
 - https://github.com/xuwd1/rdtsc-notes
