@@ -13,6 +13,12 @@ typedef struct xcr_point {
 	int32_t y;
 } xcr_point;
 
+typedef struct xcr_triangle {
+	xcr_point p0;
+	xcr_point p1;
+	xcr_point p2;
+} xcr_triangle;
+
 typedef struct xcr_colour {
 	uint8_t r;
 	uint8_t g;
@@ -31,8 +37,7 @@ void xcr_draw_line(xcr_context *ctx, xcr_point p0, xcr_point p1,
 void xcr_draw_quad_outline(xcr_context *ctx, xcr_point p, int32_t width,
 			   int32_t height, xcr_colour colour);
 
-void xcr_draw_triangle_outline(xcr_context *ctx, xcr_point p0, xcr_point p1,
-			       xcr_point p2, xcr_colour colour);
+void xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle, xcr_colour colour);
 
 void xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
 			     xcr_colour colour);
@@ -40,5 +45,7 @@ void xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
 /* Filled drawing */
 void xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width, int32_t height,
 			  xcr_colour colour);
+
+void xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle, xcr_colour colour);
 
 #endif

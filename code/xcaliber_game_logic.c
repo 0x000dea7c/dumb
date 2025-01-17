@@ -17,7 +17,7 @@ game_render(xc_ctx *ctx)
 
 	xcr_set_bg_colour(
 		ctx->renderer_ctx,
-		(xcr_colour){ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF });
+		(xcr_colour){ .r = 0xA0, .g = 0x20, .b = 0xF0, .a = 0xFF });
 
 	/* L */
 	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 50, .y = 100 },
@@ -50,9 +50,10 @@ game_render(xc_ctx *ctx)
 		(xcr_colour){ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
 
 	xcr_draw_triangle_outline(
-		ctx->renderer_ctx, (xcr_point){ .x = 550, .y = 500 },
-		(xcr_point){ .x = 550, .y = 600 },
-		(xcr_point){ .x = 600, .y = 550 },
+		ctx->renderer_ctx,
+		(xcr_triangle){ .p0 = { .x = 550, .y = 500 },
+				.p1 = { .x = 550, .y = 600 },
+				.p2 = { .x = 600, .y = 550 } },
 		(xcr_colour){ .r = 0xA9, .g = 0x89, .b = 0x8D, .a = 0xFF });
 
 	xcr_draw_circle_outline(
@@ -64,6 +65,17 @@ game_render(xc_ctx *ctx)
 		(xcr_colour){ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
 
 	xcr_draw_quad_filled(
-		ctx->renderer_ctx, (xcr_point){ .x = 400, .y = 600 }, 50, 50,
+		ctx->renderer_ctx, (xcr_point){ .x = 400, .y = 750 }, 50, 50,
+		(xcr_colour){ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
+
+	xcr_draw_quad_filled(
+		ctx->renderer_ctx, (xcr_point){ .x = 900, .y = 150 }, 50, 50,
+		(xcr_colour){ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+
+	xcr_draw_triangle_filled(
+		ctx->renderer_ctx,
+		(xcr_triangle){ .p0 = { .x = 350, .y = 400 },
+				.p1 = { .x = 350, .y = 500 },
+				.p2 = { .x = 400, .y = 450 } },
 		(xcr_colour){ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
 }

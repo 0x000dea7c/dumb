@@ -28,9 +28,12 @@ Game inspired by XCaliber from TempleOS.
 # Resources
 
 - https://github.com/xuwd1/rdtsc-notes
-- https://youtu.be/CceepU1vIKo
+- https://youtu.be/CceepU1vIKo (bresenham's)
 - https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 - https://en.wikipedia.org/wiki/Midpoint_circle_algorithm
+- https://youtu.be/sre081cGKV8 (drawing triangle primitives filled)
+- https://en.wikipedia.org/wiki/Scanline_rendering
+- https://nerdparadise.com/math/pointinatriangle
 
 # Tasks
 
