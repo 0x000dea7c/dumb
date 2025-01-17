@@ -71,7 +71,6 @@ draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 		dy_abs = XC_ABS(dy);
 	}
 
-	/* TODO: this is not exactly like drawing vertically, the way xcr_put_pixel is called is different */
 	int32_t D = 2 * dy - dx;
 	int32_t y = p0.y;
 	int32_t y_step = (dy < 0) ? -1 : 1;
@@ -107,7 +106,6 @@ draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 	dy = p1.y - p0.y;
 	dy_abs = XC_ABS(dy);
 
-	/* TODO: this is not exactly like drawing horizontally, the way xcr_put_pixel is called is different */
 	int32_t D = 2 * dy - dx;
 	int32_t y = p0.y;
 	int32_t y_step = (dy < 0) ? -1 : 1;
@@ -130,7 +128,7 @@ draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 {
 	int32_t dx = p1.x - p0.x;
 	int32_t dy = p1.y - p0.y;
-	int32_t dy_abs = XC_ABS(dx);
+	int32_t dy_abs = XC_ABS(dy);
 	int32_t dx_abs = XC_ABS(dx);
 	bool steep = dy_abs > dx_abs;
 
@@ -140,6 +138,29 @@ draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 	} else {
 		draw_horizontal_line_bresenham(ctx, p0, p1, colour, dx, dy,
 					       dy_abs);
+	}
+}
+
+static inline void
+draw_circle_midpoint(xcr_context *ctx, xcr_point center, int32_t r,
+		     xcr_colour colour)
+{
+	/* start at the top! */
+	xcr_point curr = { .x = 0, .y = r };
+	int32_t D = 3 - (2 * r);
+
+	plot_points(ctx, center, curr, colour);
+
+	while (curr.y > curr.x) {
+		/* move inward or not */
+		if (D > 0) {
+			--curr.y;
+			D = D + 4 * (curr.x - curr.y) + 10;
+		} else {
+			D = D + 4 * curr.x + 6;
+		}
+		++curr.x;
+		plot_points(ctx, center, curr, colour);
 	}
 }
 
@@ -235,21 +256,5 @@ void
 xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
 			xcr_colour colour)
 {
-	/* start at the top! */
-	xcr_point curr = { .x = 0, .y = r };
-	int32_t D = 3 - (2 * r);
-
-	plot_points(ctx, center, curr, colour);
-
-	while (curr.y > curr.x) {
-		/* move inward or not */
-		if (D > 0) {
-			--curr.y;
-			D = D + 4 * (curr.x - curr.y) + 10;
-		} else {
-			D = D + 4 * curr.x + 6;
-		}
-		++curr.x;
-		plot_points(ctx, center, curr, colour);
-	}
+	draw_circle_midpoint(ctx, center, r, colour);
 }
