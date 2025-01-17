@@ -58,4 +58,12 @@ game_render(xc_ctx *ctx)
 	xcr_draw_circle_outline(
 		ctx->renderer_ctx, (xcr_point){ .x = 200, .y = 500 }, 50,
 		(xcr_colour){ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+
+	xcr_draw_quad_filled(
+		ctx->renderer_ctx, (xcr_point){ .x = 400, .y = 500 }, 50, 50,
+		(xcr_colour){ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
+
+	xcr_draw_quad_filled(
+		ctx->renderer_ctx, (xcr_point){ .x = 400, .y = 600 }, 50, 50,
+		(xcr_colour){ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
 }

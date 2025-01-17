@@ -5,6 +5,11 @@
 #define XC_KILOBYTES(number) ((number) * 1024ull)
 #define XC_MEGABYTES(number) (XC_KILOBYTES(number) * 1024ull)
 #define XC_IS_POWER_OF_TWO(a) (((a) != 0) && ((a) & ((a) - 1)) == 0)
-#define XC_SWAP(type,a,b) do{type SWAP_tmp= b; b= a; a= SWAP_tmp;}while(0)
+#define XC_SWAP(type, a, b)        \
+	do {                       \
+		type SWAP_tmp = b; \
+		b = a;             \
+		a = SWAP_tmp;      \
+	} while (0)
 
 #endif

@@ -22,9 +22,12 @@ xcr_put_pixel(xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 {
 #ifdef DEBUG
 	if (x < 0 || x > ctx->fb->width || y < 0 || y > ctx->fb->height) {
-		(void)fprintf(stderr, "x: %d, y: %d\n", x, y);
+		(void)fprintf(
+			stderr,
+			"WARNING: OUT OF BOUNDS FRAMEBUFFER UPDATE x: %d, y: %d\n",
+			x, y);
 		(void)fflush(stderr);
-		assert(false && "OUT OF BOUNDS FRAMEBUFFER UPDATE!!");
+		return;
 	}
 #endif
 	ctx->fb->pixels[y * ctx->fb->width + x] = colour;
@@ -257,4 +260,26 @@ xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
 			xcr_colour colour)
 {
 	draw_circle_midpoint(ctx, center, r, colour);
+}
+
+void
+xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width,
+		     int32_t height, xcr_colour colour)
+{
+	uint32_t const c = xcr_colour_to_uint(colour);
+
+	/* Just in case I pass some weird shit as arguments... Like intentionally
+	   drawing at the edge of the screen */
+	int32_t const xstart = XC_MAX(p0.x, 0);
+	int32_t const ystart = XC_MAX(p0.y, 0);
+
+	/* Careful not to go outside boundaries */
+	int32_t const ymax = XC_MIN(p0.y + height, ctx->fb->height);
+	int32_t const xmax = XC_MIN(p0.x + width, ctx->fb->width);
+
+	for (int32_t y = ystart; y < ymax; ++y) {
+		for (int32_t x = xstart; x < xmax; ++x) {
+			xcr_put_pixel(ctx, x, y, c);
+		}
+	}
 }
