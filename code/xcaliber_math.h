@@ -8,5 +8,6 @@
 #define XC_MAX(a, b) ((a) > (b) ? (a) : (b))
 
 float xcr_sqrt(float n);
+float xcr_rsqrt(float n);
 
 #endif

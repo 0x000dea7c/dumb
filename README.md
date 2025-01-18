@@ -76,5 +76,6 @@ Game inspired by XCaliber from TempleOS.
 - X Refactor, add point structs to simplify function calls.
 - X Refactor, create a renderer module with a decent API.
 - X Add bound checking to framebuffer somehow.
-- Flood fill.
+- X "Flood fill". More like filled primitives.
 - Parametrise AVX2 / SSE / SSE2.
+- Create vector data types to improve readability.

@@ -46,7 +46,25 @@ fast_sse_rsqrt(float n)
 }
 
 inline float
+fast_sse_sqrt(float n)
+{
+	float y;
+	__asm__ volatile("sqrtss %1, %%xmm0\n\t"
+			 "movss %%xmm0, %0\n\t"
+			 : "=m"(y)
+			 : "m"(n)
+			 : "xmm0");
+	return y;
+}
+
+inline float
 xcr_sqrt(float n)
 {
-	return n * fast_sse_rsqrt(n);
+	return fast_sse_sqrt(n);
+}
+
+inline float
+xcr_rsqrt(float n)
+{
+	return fast_sse_rsqrt(n);
 }
