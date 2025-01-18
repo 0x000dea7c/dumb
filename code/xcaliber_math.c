@@ -15,19 +15,31 @@ fast_sse_rsqrt(float n)
 			 : "m"(n)
 			 : "xmm0");
 
-	/* for better accuracy, I can do one more Newton-Raphson iteration
-	   if y was perfect, then:
-	   - y          = 1 / √n
-	   - y²         = 1 / n
-	   - n * y²     = 1
-	   - n * y² - 1 = 0
+	/* for better accuracy, I can do one more Newton-Raphson iteration!!
 
-	   the statement below is trying to get close to this ideal!!
+	   if the approximation was perfect, then (n_half * rsqrt * rsqrt) would be 0.5.
 
-	   n_half * y * y -> n/2 * y²
+	   Example:
 
-	   the subtraction gives a correction factor, and multiplying this factor by
-	   y somehow improves the approximation */
+	   n = 9
+	   - (n / 2) * (1 / √n) * (1 / √n)
+	   - (n / 2) * (1 / (√n)²)
+	   - (n / 2) * (1 / n)
+	   - 1 / 2
+
+	   so, three_halfs - (n_half * rsqrt * rsqrt) would equal to 1:
+
+	   - (3/2) - (1/2)
+	   - (2/2)
+	   - 1
+
+	   and rsqrt = rsqrt * 1 wouldn't change. done.
+
+	   if the approximation was too high, the correction factor would be smaller than 1,
+	   making the approximation smaller.
+
+	   if the approximation was too low, it would push the approximation up.
+	*/
 	rsqrt = rsqrt * (three_halfs - (n_half * rsqrt * rsqrt));
 
 	return rsqrt;
