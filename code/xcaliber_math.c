@@ -58,13 +58,13 @@ fast_sse_sqrt(float n)
 }
 
 inline float
-xcr_sqrt(float n)
+xc_sqrt(float n)
 {
 	return fast_sse_sqrt(n);
 }
 
 inline float
-xcr_rsqrt(float n)
+xc_rsqrt(float n)
 {
 	return fast_sse_rsqrt(n);
 }

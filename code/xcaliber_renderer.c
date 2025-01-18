@@ -331,7 +331,7 @@ xcr_draw_circle_filled(xcr_context *ctx, xcr_point center, int32_t r,
 		int32_t dy = y - center.y;
 		int32_t width_sq = r_sq - (dy * dy);
 		if (width_sq >= 0) {
-			int32_t width = (int32_t)xcr_sqrt((float)width_sq);
+			int32_t width = (int32_t)xc_sqrt((float)width_sq);
 			int32_t xstart = XC_MAX(center.x - width, 0);
 			int32_t xend =
 				XC_MIN(center.x + width, ctx->fb->width - 1);

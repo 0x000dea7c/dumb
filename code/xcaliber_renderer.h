@@ -5,7 +5,6 @@
 
 #include "xcaliber.h"
 #include "xcaliber_linear_arena.h"
-#include "xcaliber_colour.h"
 #include <stdint.h>
 
 typedef struct xcr_context xcr_context;
