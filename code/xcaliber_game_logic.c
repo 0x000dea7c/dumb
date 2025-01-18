@@ -2,7 +2,9 @@
 
 #include "xcaliber.h"
 #include "xcaliber_renderer.h"
+#include "xcaliber_colour.h"
 #include <SDL3/SDL.h>
+#include <stdint.h>
 
 XC_API void
 game_update(__attribute__((unused)) xc_ctx *ctx)
@@ -13,11 +15,9 @@ game_update(__attribute__((unused)) xc_ctx *ctx)
 XC_API void
 game_render(xc_ctx *ctx)
 {
-	xcr_colour line_colour = { .r = 0x1B, .g = 0x17, .b = 0x28, .a = 0xFF };
+	uint32_t line_colour = xc_preset_colour(XC_BLACK);
 
-	xcr_set_bg_colour(
-		ctx->renderer_ctx,
-		(xcr_colour){ .r = 0xA0, .g = 0x20, .b = 0xF0, .a = 0xFF });
+	xcr_set_bg_colour(ctx->renderer_ctx, xc_preset_colour(XC_BLUE));
 
 	/* L */
 	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 50, .y = 100 },
@@ -45,41 +45,40 @@ game_render(xc_ctx *ctx)
 	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 650, .y = 100 },
 		      (xcr_point){ .x = 650, .y = 400 }, line_colour);
 
-	xcr_draw_quad_outline(
-		ctx->renderer_ctx, (xcr_point){ .x = 700, .y = 500 }, 200, 200,
-		(xcr_colour){ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+	xcr_draw_quad_outline(ctx->renderer_ctx,
+			      (xcr_point){ .x = 700, .y = 500 }, 200, 200,
+			      xc_preset_colour(XC_WHITE));
 
 	xcr_draw_triangle_outline(
 		ctx->renderer_ctx,
 		(xcr_triangle){ .p0 = { .x = 550, .y = 500 },
 				.p1 = { .x = 550, .y = 600 },
 				.p2 = { .x = 600, .y = 550 } },
-		(xcr_colour){ .r = 0xA9, .g = 0x89, .b = 0x8D, .a = 0xFF });
+		xc_preset_colour(XC_BLACK));
 
-	xcr_draw_circle_outline(
-		ctx->renderer_ctx, (xcr_point){ .x = 200, .y = 500 }, 50,
-		(xcr_colour){ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+	xcr_draw_circle_outline(ctx->renderer_ctx,
+				(xcr_point){ .x = 200, .y = 500 }, 50,
+				xc_preset_colour(XC_WHITE));
 
-	xcr_draw_quad_filled(
-		ctx->renderer_ctx, (xcr_point){ .x = 400, .y = 500 }, 50, 50,
-		(xcr_colour){ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
+	xcr_draw_quad_filled(ctx->renderer_ctx,
+			     (xcr_point){ .x = 400, .y = 500 }, 50, 50,
+			     xc_preset_colour(XC_BLACK));
 
-	xcr_draw_quad_filled(
-		ctx->renderer_ctx, (xcr_point){ .x = 400, .y = 750 }, 50, 50,
-		(xcr_colour){ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
+	xcr_draw_quad_filled(ctx->renderer_ctx,
+			     (xcr_point){ .x = 400, .y = 750 }, 50, 50,
+			     xc_preset_colour(XC_RED));
 
-	xcr_draw_quad_filled(
-		ctx->renderer_ctx, (xcr_point){ .x = 900, .y = 150 }, 50, 50,
-		(xcr_colour){ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+	xcr_draw_quad_filled(ctx->renderer_ctx,
+			     (xcr_point){ .x = 900, .y = 150 }, 50, 50,
+			     xc_preset_colour(XC_WHITE));
 
-	xcr_draw_triangle_filled(
-		ctx->renderer_ctx,
-		(xcr_triangle){ .p0 = { .x = 350, .y = 400 },
-				.p1 = { .x = 350, .y = 500 },
-				.p2 = { .x = 400, .y = 450 } },
-		(xcr_colour){ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
+	xcr_draw_triangle_filled(ctx->renderer_ctx,
+				 (xcr_triangle){ .p0 = { .x = 350, .y = 400 },
+						 .p1 = { .x = 350, .y = 500 },
+						 .p2 = { .x = 400, .y = 450 } },
+				 xc_preset_colour(XC_RED));
 
-	xcr_draw_circle_filled(
-		ctx->renderer_ctx, (xcr_point){ .x = 750, .y = 350 }, 50,
-		(xcr_colour){ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF });
+	xcr_draw_circle_filled(ctx->renderer_ctx,
+			       (xcr_point){ .x = 750, .y = 350 }, 50,
+			       xc_preset_colour(XC_PURPLE));
 }

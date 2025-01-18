@@ -3,19 +3,13 @@
 #include "xcaliber_common.h"
 #include "xcaliber.h"
 #include "xcaliber_linear_arena.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
 
 struct xcr_context {
 	xc_framebuffer *fb;
 };
-
-static inline uint32_t
-xcr_colour_to_uint(xcr_colour c)
-{
-	return (uint32_t)(c.r) << 24 | (uint32_t)(c.g) << 16 |
-	       (uint32_t)(c.b) << 8 | (uint32_t)(c.a);
-}
 
 static inline void
 xcr_put_pixel(xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
@@ -34,10 +28,8 @@ xcr_put_pixel(xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 }
 
 static inline void
-plot_points(xcr_context *ctx, xcr_point center, xcr_point p, xcr_colour colour)
+plot_points(xcr_context *ctx, xcr_point center, xcr_point p, uint32_t c)
 {
-	uint32_t c = xcr_colour_to_uint(colour);
-
 	/* each point I compute gives me 8 points on the circle (symmetry) */
 
 	/* octant 1 */
@@ -61,11 +53,9 @@ plot_points(xcr_context *ctx, xcr_point center, xcr_point p, xcr_colour colour)
 
 static inline void
 draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
-			       xcr_colour colour, int32_t dx, int32_t dy,
+			       uint32_t colour, int32_t dx, int32_t dy,
 			       int32_t dy_abs)
 {
-	uint32_t const colour_fb = xcr_colour_to_uint(colour);
-
 	if (p1.x < p0.x) {
 		XC_SWAP(int, p0.x, p1.x);
 		XC_SWAP(int, p0.y, p1.y);
@@ -79,7 +69,7 @@ draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 	int32_t y_step = (dy < 0) ? -1 : 1;
 
 	for (int32_t x = p0.x; x <= p1.x; ++x) {
-		xcr_put_pixel(ctx, x, y, colour_fb);
+		xcr_put_pixel(ctx, x, y, colour);
 
 		if (D > 0) {
 			y += y_step;
@@ -92,11 +82,9 @@ draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 
 static inline void
 draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
-			     xcr_colour colour, int32_t dx, int32_t dy,
+			     uint32_t colour, int32_t dx, int32_t dy,
 			     int32_t dy_abs)
 {
-	uint32_t const colour_fb = xcr_colour_to_uint(colour);
-
 	XC_SWAP(int, p0.x, p0.y);
 	XC_SWAP(int, p1.x, p1.y);
 
@@ -114,7 +102,7 @@ draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 	int32_t y_step = (dy < 0) ? -1 : 1;
 
 	for (int32_t x = p0.x; x <= p1.x; ++x) {
-		xcr_put_pixel(ctx, y, x, colour_fb);
+		xcr_put_pixel(ctx, y, x, colour);
 
 		if (D > 0) {
 			y += y_step;
@@ -127,7 +115,7 @@ draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 
 static inline void
 draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
-		    xcr_colour colour)
+		    uint32_t colour)
 {
 	int32_t dx = p1.x - p0.x;
 	int32_t dy = p1.y - p0.y;
@@ -146,7 +134,7 @@ draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 
 static inline void
 draw_circle_midpoint(xcr_context *ctx, xcr_point center, int32_t r,
-		     xcr_colour colour)
+		     uint32_t colour)
 {
 	/* start at the top! */
 	xcr_point curr = { .x = 0, .y = r };
@@ -199,9 +187,8 @@ xcr_create(linear_arena *arena, xc_framebuffer *fb)
 }
 
 void
-xcr_set_bg_colour(xcr_context *ctx, xcr_colour colour)
+xcr_set_bg_colour(xcr_context *ctx, uint32_t colour)
 {
-	uint32_t c = xcr_colour_to_uint(colour);
 	uint32_t *pixels = ctx->fb->pixels;
 
 	/* Draw background as blue */
@@ -233,7 +220,7 @@ xcr_set_bg_colour(xcr_context *ctx, xcr_colour colour)
 
 		/* Outputs */
 		:
-		: "m"(c), /* %0 is the colour */
+		: "m"(colour), /* %0 is the colour */
 		  "r"(pixels), /* %1 pixel buffer */
 		  "r"(ctx->fb->simd_chunks) /* %2 current chunk count */
 		: "ymm0", "rax", "rcx",
@@ -242,14 +229,14 @@ xcr_set_bg_colour(xcr_context *ctx, xcr_colour colour)
 }
 
 void
-xcr_draw_line(xcr_context *ctx, xcr_point p0, xcr_point p1, xcr_colour colour)
+xcr_draw_line(xcr_context *ctx, xcr_point p0, xcr_point p1, uint32_t colour)
 {
 	draw_line_bresenham(ctx, p0, p1, colour);
 }
 
 void
 xcr_draw_quad_outline(xcr_context *ctx, xcr_point p0, int32_t width,
-		      int32_t height, xcr_colour colour)
+		      int32_t height, uint32_t colour)
 {
 	xcr_point p1 = { .x = p0.x, .y = p0.y + height };
 
@@ -265,7 +252,7 @@ xcr_draw_quad_outline(xcr_context *ctx, xcr_point p0, int32_t width,
 
 void
 xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle,
-			  xcr_colour colour)
+			  uint32_t colour)
 {
 	xcr_draw_line(ctx, triangle.p0, triangle.p1, colour);
 	xcr_draw_line(ctx, triangle.p1, triangle.p2, colour);
@@ -274,17 +261,15 @@ xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle,
 
 void
 xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
-			xcr_colour colour)
+			uint32_t colour)
 {
 	draw_circle_midpoint(ctx, center, r, colour);
 }
 
 void
 xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width,
-		     int32_t height, xcr_colour colour)
+		     int32_t height, uint32_t colour)
 {
-	uint32_t const c = xcr_colour_to_uint(colour);
-
 	/* Just in case I pass some weird shit as arguments... Like intentionally
 	   drawing at the edge of the screen */
 	int32_t const xstart = XC_MAX(p0.x, 0);
@@ -296,18 +281,16 @@ xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width,
 
 	for (int32_t y = ystart; y < ymax; ++y) {
 		for (int32_t x = xstart; x < xmax; ++x) {
-			xcr_put_pixel(ctx, x, y, c);
+			xcr_put_pixel(ctx, x, y, colour);
 		}
 	}
 }
 
 void
 xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
-			 xcr_colour colour)
+			 uint32_t colour)
 
 {
-	uint32_t const c = xcr_colour_to_uint(colour);
-
 	/* Find bounding box */
 	int32_t xmin =
 		XC_MIN(triangle.p0.x, XC_MIN(triangle.p1.x, triangle.p2.x));
@@ -329,7 +312,7 @@ xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
 		for (int32_t x = xmin; x <= xmax; ++x) {
 			if (point_inside_triangle((xcr_point){ .x = x, .y = y },
 						  triangle)) {
-				xcr_put_pixel(ctx, x, y, c);
+				xcr_put_pixel(ctx, x, y, colour);
 			}
 		}
 	}
@@ -337,10 +320,9 @@ xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
 
 void
 xcr_draw_circle_filled(xcr_context *ctx, xcr_point center, int32_t r,
-		       xcr_colour colour)
+		       uint32_t colour)
 {
 	/* x² + y² = r² */
-	uint32_t const c = xcr_colour_to_uint(colour);
 	int32_t const r_sq = r * r;
 	int32_t ystart = XC_MAX(center.y - r, 0);
 	int32_t yend = XC_MIN(center.y + r, ctx->fb->height - 1);
@@ -355,7 +337,7 @@ xcr_draw_circle_filled(xcr_context *ctx, xcr_point center, int32_t r,
 				XC_MIN(center.x + width, ctx->fb->width - 1);
 
 			for (int32_t x = xstart; x <= xend; ++x) {
-				xcr_put_pixel(ctx, x, y, c);
+				xcr_put_pixel(ctx, x, y, colour);
 			}
 		}
 	}
