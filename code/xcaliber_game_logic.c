@@ -78,4 +78,8 @@ game_render(xc_ctx *ctx)
 				.p1 = { .x = 350, .y = 500 },
 				.p2 = { .x = 400, .y = 450 } },
 		(xcr_colour){ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
+
+	xcr_draw_circle_filled(
+		ctx->renderer_ctx, (xcr_point){ .x = 750, .y = 350 }, 50,
+		(xcr_colour){ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF });
 }

@@ -180,8 +180,8 @@ point_inside_triangle(xcr_point P, xcr_triangle T)
 	int32_t edge2 = (T.p0.x - T.p2.x) * (P.y - T.p2.y) -
 			(T.p0.y - T.p2.y) * (P.x - T.p2.x);
 
-	return (edge0 > 0 && edge1 > 0 && edge2 > 0) ||
-	       (edge0 < 0 && edge1 < 0 && edge2 < 0);
+	return (edge0 >= 0 && edge1 >= 0 && edge2 >= 0) ||
+	       (edge0 <= 0 && edge1 <= 0 && edge2 <= 0);
 }
 
 xcr_context *
@@ -264,7 +264,8 @@ xcr_draw_quad_outline(xcr_context *ctx, xcr_point p0, int32_t width,
 }
 
 void
-xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle, xcr_colour colour)
+xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle,
+			  xcr_colour colour)
 {
 	xcr_draw_line(ctx, triangle.p0, triangle.p1, colour);
 	xcr_draw_line(ctx, triangle.p1, triangle.p2, colour);
@@ -301,16 +302,21 @@ xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width,
 }
 
 void
-xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle, xcr_colour colour)
+xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
+			 xcr_colour colour)
 
 {
 	uint32_t const c = xcr_colour_to_uint(colour);
 
 	/* Find bounding box */
-	int32_t xmin = XC_MIN(triangle.p0.x, XC_MIN(triangle.p1.x, triangle.p2.x));
-	int32_t ymin = XC_MIN(triangle.p0.y, XC_MIN(triangle.p1.y, triangle.p2.y));
-	int32_t xmax = XC_MAX(triangle.p0.x, XC_MAX(triangle.p1.x, triangle.p2.x));
-	int32_t ymax = XC_MAX(triangle.p0.y, XC_MAX(triangle.p1.y, triangle.p2.y));
+	int32_t xmin =
+		XC_MIN(triangle.p0.x, XC_MIN(triangle.p1.x, triangle.p2.x));
+	int32_t ymin =
+		XC_MIN(triangle.p0.y, XC_MIN(triangle.p1.y, triangle.p2.y));
+	int32_t xmax =
+		XC_MAX(triangle.p0.x, XC_MAX(triangle.p1.x, triangle.p2.x));
+	int32_t ymax =
+		XC_MAX(triangle.p0.y, XC_MAX(triangle.p1.y, triangle.p2.y));
 
 	/* Bounds checking */
 	xmin = XC_MAX(xmin, 0);
@@ -321,7 +327,34 @@ xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle, xcr_colour col
 	/* Scan each line and fill if I'm inside the triangle */
 	for (int32_t y = ymin; y <= ymax; ++y) {
 		for (int32_t x = xmin; x <= xmax; ++x) {
-			if (point_inside_triangle((xcr_point) { .x = x, .y = y }, triangle)) {
+			if (point_inside_triangle((xcr_point){ .x = x, .y = y },
+						  triangle)) {
+				xcr_put_pixel(ctx, x, y, c);
+			}
+		}
+	}
+}
+
+void
+xcr_draw_circle_filled(xcr_context *ctx, xcr_point center, int32_t r,
+		       xcr_colour colour)
+{
+	/* x² + y² = r² */
+	uint32_t const c = xcr_colour_to_uint(colour);
+	int32_t const r_sq = r * r;
+	int32_t ystart = XC_MAX(center.y - r, 0);
+	int32_t yend = XC_MIN(center.y + r, ctx->fb->height - 1);
+
+	for (int32_t y = ystart; y <= yend; ++y) {
+		int32_t dy = y - center.y;
+		int32_t width_sq = r_sq - (dy * dy);
+		if (width_sq >= 0) {
+			int32_t width = (int32_t)xcr_sqrt((float)width_sq);
+			int32_t xstart = XC_MAX(center.x - width, 0);
+			int32_t xend =
+				XC_MIN(center.x + width, ctx->fb->width - 1);
+
+			for (int32_t x = xstart; x <= xend; ++x) {
 				xcr_put_pixel(ctx, x, y, c);
 			}
 		}

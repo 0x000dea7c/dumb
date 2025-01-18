@@ -38,6 +38,7 @@ Game inspired by XCaliber from TempleOS.
 - https://youtu.be/sre081cGKV8 (drawing triangle primitives filled)
 - https://en.wikipedia.org/wiki/Scanline_rendering
 - https://nerdparadise.com/math/pointinatriangle
+- https://web.archive.org/web/20210208132927/http://assemblyrequired.crashworks.org/timing-square-root/
 
 # Tasks
 

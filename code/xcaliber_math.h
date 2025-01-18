@@ -7,4 +7,6 @@
 #define XC_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define XC_MAX(a, b) ((a) > (b) ? (a) : (b))
 
+float xcr_sqrt(float n);
+
 #endif

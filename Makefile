@@ -4,9 +4,9 @@ CC_FLAGS_WARN    := -Wall -Wextra -pedantic -Wformat -Wformat-security -Wconvers
 CC_FLAGS_DEBUG   := -O1 -ggdb3 -D_FORTIFY_SOURCE=2 -fstack-clash-protection -fcf-protection=full -DDEBUG -march=native -mavx2
 CC_FLAGS_RELEASE := -O3 -g -ffast-math -funroll-loops -flto -march=native -mavx2
 # NOTE: Hidden symbols by default, I think that reduces the size of the
-# generated binary, which is nice.
+# generated binary, which is nice
 SHARED_FLAGS     := -shared -fPIC -fvisibility=hidden
-GAME_LIB_SOURCES := code/xcaliber_game_logic.c code/xcaliber_renderer.c code/xcaliber_linear_arena.c
+GAME_LIB_SOURCES := code/xcaliber_game_logic.c code/xcaliber_renderer.c code/xcaliber_linear_arena.c code/xcaliber_math.c
 SOURCES          := $(filter-out code/xcaliber_game_logic.c, $(wildcard code/*.c))
 OBJECTS          := $(SOURCES:code/%.c=obj/%.o)
 TARGET           := xcaliber
