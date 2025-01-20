@@ -27,7 +27,7 @@ Game inspired by XCaliber from TempleOS.
 
 # Current Screenshot
 
-[<img src="current.png">]
+<img src="current.png">
 
 # Resources
 
@@ -78,4 +78,10 @@ Game inspired by XCaliber from TempleOS.
 - X Add bound checking to framebuffer somehow.
 - X "Flood fill". More like filled primitives.
 - Parametrise AVX2 / SSE / SSE2.
-- Create vector data types to improve readability.
+Fix bug, when I'm using SSE2 is segfaults
+- X Create vector data types to improve readability.
+- Improve triangle rasteriser.
+- Clipping for all primitives.
+- Basic transformations (rotation, scaling)
+- Textures
+- Batch draw calls

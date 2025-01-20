@@ -7,6 +7,70 @@
 #include <stdio.h>
 #include <assert.h>
 
+#if defined(__AVX2__)
+#define XC_FILL_PIXELS_SIMD(dst, colour, count) \
+    __asm__ volatile( \
+        /* Load chunk count into rax */ \
+        "movq %2, %%rax\n\t" \
+        /* Broadcast 32-bit colour to all 8 lanes of ymm0 */ \
+        "vpbroadcastd %0, %%ymm0\n\t" \
+        /* Load destination buffer address into rcx */ \
+        "movq %1, %%rcx\n\t" \
+        /* Main loop label */ \
+        "1:\n\t" \
+        /* Store 8 pixels (256 bits) aligned */ \
+        "vmovdqa %%ymm0, (%%rcx)\n\t" \
+        /* Move to next chunk (32 bytes = 8 pixels × 4 bytes) */ \
+        "addq $32, %%rcx\n\t" \
+        /* Decrement counter */ \
+        "decq %%rax\n\t" \
+        /* Loop if counter not zero */ \
+        "jnz 1b\n\t" \
+        : /* No outputs */ \
+        : "m"(colour), /* %0: colour to broadcast */ \
+          "r"(dst),    /* %1: destination buffer */ \
+          "r"(count)   /* %2: number of chunks */ \
+        : "ymm0", "rax", "rcx", "memory" \
+    )
+
+#elif defined(__SSE2__)
+#define XC_FILL_PIXELS_SIMD(dst, colour, count) \
+    __asm__ volatile( \
+        /* Load chunk count into rax */ \
+        "movq %2, %%rax\n\t" \
+        /* Move 32-bit colour into lowest lane of xmm0 */ \
+        "movd %0, %%xmm0\n\t" \
+        /* Broadcast to all 4 lanes */ \
+        "pshufd $0, %%xmm0, %%xmm0\n\t" \
+        /* Load destination buffer address */ \
+        "movq %1, %%rcx\n\t" \
+        /* Main loop label */ \
+        "1:\n\t" \
+        /* Store 4 pixels (128 bits) aligned */ \
+        "movdqa %%xmm0, (%%rcx)\n\t" \
+        /* Move to next chunk (16 bytes = 4 pixels × 4 bytes) */ \
+        "addq $16, %%rcx\n\t" \
+        /* Decrement counter */ \
+        "decq %%rax\n\t" \
+        /* Loop if counter not zero */ \
+        "jnz 1b\n\t" \
+        : /* No outputs */ \
+        : "m"(colour), /* %0: colour to broadcast */ \
+          "r"(dst),    /* %1: destination buffer */ \
+          "r"(count)   /* %2: number of chunks */ \
+        : "xmm0", "rax", "rcx", "memory" \
+    )
+
+#else
+    #define XC_FILL_PIXELS_SIMD(dst, colour, count) \
+        do { \
+            uint32_t *d = (dst); \
+            for (size_t i = 0; i < (count) * 8; ++i) { \
+                d[i] = (colour); \
+            } \
+        } while(0)
+#endif
+
 struct xcr_context {
 	xc_framebuffer *fb;
 };
