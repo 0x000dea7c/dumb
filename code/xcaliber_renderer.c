@@ -33,7 +33,7 @@
         : "ymm0", "rax", "rcx", "memory" \
     )
 
-#elif defined(__SSE2__)
+#elif defined(__SSE4_2__)
 #define XC_FILL_PIXELS_SIMD(dst, colour, count) \
     __asm__ volatile( \
         /* Load chunk count into rax */ \
@@ -62,13 +62,7 @@
     )
 
 #else
-    #define XC_FILL_PIXELS_SIMD(dst, colour, count) \
-        do { \
-            uint32_t *d = (dst); \
-            for (size_t i = 0; i < (count) * 8; ++i) { \
-                d[i] = (colour); \
-            } \
-        } while(0)
+#error "engine needs at least SSE4.2 support"
 #endif
 
 struct xcr_context {
@@ -254,42 +248,7 @@ void
 xcr_set_bg_colour(xcr_context *ctx, uint32_t colour)
 {
 	uint32_t *pixels = ctx->fb->pixels;
-
-	/* Draw background as blue */
-	/* AT&T src, dst */
-	__asm__ volatile(
-		/* Load chunk count into rax */
-		"movq %2, %%rax\n\t"
-
-		/* Broadcast colour to all 8 chunks of ymm0 */
-		"vpbroadcastd %0, %%ymm0\n\t"
-
-		/* Load pixel buffer into rcx */
-		"movq %1, %%rcx\n\t"
-
-		/* Loop label */
-		"1:\n\t"
-
-		/* Store 8 pixels (256 bits, 4 bytes per pixel) aligned */
-		"vmovdqa %%ymm0, (%%rcx)\n\t"
-
-		/* Go to the next chunk (add 32) */
-		"addq $32, %%rcx\n\t"
-
-		/* Decrement counter (chunk count) */
-		"decq %%rax\n\t"
-
-		/* Jump back if not zero */
-		"jnz 1b\n\t"
-
-		/* Outputs */
-		:
-		: "m"(colour), /* %0 is the colour */
-		  "r"(pixels), /* %1 pixel buffer */
-		  "r"(ctx->fb->simd_chunks) /* %2 current chunk count */
-		: "ymm0", "rax", "rcx",
-		  "memory" /* tells the compiler which registers I'm using */
-	);
+	XC_FILL_PIXELS_SIMD(pixels, colour, ctx->fb->simd_chunks);
 }
 
 void

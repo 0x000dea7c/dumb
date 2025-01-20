@@ -140,9 +140,13 @@ fb_init(void)
 	fb.pitch = fb.width * (int32_t)sizeof(fb.width);
 	fb.pixel_count = (uint32_t)fb.width * (uint32_t)fb.height;
 	fb.byte_size = fb.pixel_count * sizeof(uint32_t);
-	/* FIXME: assumming AVX2 processor */
+#if defined(__AVX2__)
 	fb.simd_chunks = fb.pixel_count / 8;
-
+#elif defined(__SSE4_2__)
+	fb.simd_chunks = fb.pixel_count / 4;
+#else
+	#error "engine needs at least SSE4.2 support"
+#endif
 	fb.pixels = linear_arena_alloc(&arena, fb.byte_size);
 	if (!fb.pixels) {
 		panic("framebuffer init", "Couldn't allocate space for the framebuffer");
