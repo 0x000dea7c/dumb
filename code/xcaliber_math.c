@@ -68,3 +68,21 @@ xc_rsqrt(float n)
 {
 	return fast_sse_rsqrt(n);
 }
+
+inline xc_vec2i
+xc_vec2i_sub(xc_vec2i a, xc_vec2i b)
+{
+	return (xc_vec2i){ .x = a.x - b.x, .y = a.y - b.y };
+}
+
+inline xc_vec2i
+xc_vec2_add(xc_vec2i a, xc_vec2i b)
+{
+	return (xc_vec2i){ .x = a.x + b.x, .y = a.y + b.y };
+}
+
+inline int32_t
+xc_vec2i_cross_product(xc_vec2i a, xc_vec2i b)
+{
+	return a.x * b.y - a.y * b.x;
+}

@@ -20,33 +20,33 @@ game_render(xc_ctx *ctx)
 	xcr_set_bg_colour(ctx->renderer_ctx, xc_preset_colour(XC_BLUE));
 
 	/* L */
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 50, .y = 100 },
-		      (xcr_point){ .x = 50, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 50, .y = 400 },
-		      (xcr_point){ .x = 200, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 100 },
+		      (xc_vec2i){ .x = 50, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 400 },
+		      (xc_vec2i){ .x = 200, .y = 400 }, line_colour);
 
 	/* A */
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 320, .y = 100 },
-		      (xcr_point){ .x = 220, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 255, .y = 300 },
-		      (xcr_point){ .x = 385, .y = 300 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 320, .y = 100 },
-		      (xcr_point){ .x = 420, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 320, .y = 100 },
+		      (xc_vec2i){ .x = 220, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 255, .y = 300 },
+		      (xc_vec2i){ .x = 385, .y = 300 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 320, .y = 100 },
+		      (xc_vec2i){ .x = 420, .y = 400 }, line_colour);
 
 	/* I */
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 440, .y = 100 },
-		      (xcr_point){ .x = 440, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 440, .y = 100 },
+		      (xc_vec2i){ .x = 440, .y = 400 }, line_colour);
 
 	/* N */
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 520, .y = 100 },
-		      (xcr_point){ .x = 520, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 520, .y = 100 },
-		      (xcr_point){ .x = 650, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xcr_point){ .x = 650, .y = 100 },
-		      (xcr_point){ .x = 650, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 520, .y = 100 },
+		      (xc_vec2i){ .x = 520, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 520, .y = 100 },
+		      (xc_vec2i){ .x = 650, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 650, .y = 100 },
+		      (xc_vec2i){ .x = 650, .y = 400 }, line_colour);
 
 	xcr_draw_quad_outline(ctx->renderer_ctx,
-			      (xcr_point){ .x = 700, .y = 500 }, 200, 200,
+			      (xc_vec2i){ .x = 700, .y = 500 }, 200, 200,
 			      xc_preset_colour(XC_WHITE));
 
 	xcr_draw_triangle_outline(
@@ -57,19 +57,19 @@ game_render(xc_ctx *ctx)
 		xc_preset_colour(XC_BLACK));
 
 	xcr_draw_circle_outline(ctx->renderer_ctx,
-				(xcr_point){ .x = 200, .y = 500 }, 50,
+				(xc_vec2i){ .x = 200, .y = 500 }, 50,
 				xc_preset_colour(XC_WHITE));
 
 	xcr_draw_quad_filled(ctx->renderer_ctx,
-			     (xcr_point){ .x = 400, .y = 500 }, 50, 50,
+			     (xc_vec2i){ .x = 400, .y = 500 }, 50, 50,
 			     xc_preset_colour(XC_BLACK));
 
 	xcr_draw_quad_filled(ctx->renderer_ctx,
-			     (xcr_point){ .x = 400, .y = 750 }, 50, 50,
+			     (xc_vec2i){ .x = 400, .y = 750 }, 50, 50,
 			     xc_preset_colour(XC_RED));
 
 	xcr_draw_quad_filled(ctx->renderer_ctx,
-			     (xcr_point){ .x = 900, .y = 150 }, 50, 50,
+			     (xc_vec2i){ .x = 900, .y = 150 }, 50, 50,
 			     xc_preset_colour(XC_WHITE));
 
 	xcr_draw_triangle_filled(ctx->renderer_ctx,
@@ -79,6 +79,6 @@ game_render(xc_ctx *ctx)
 				 xc_preset_colour(XC_RED));
 
 	xcr_draw_circle_filled(ctx->renderer_ctx,
-			       (xcr_point){ .x = 750, .y = 350 }, 50,
+			       (xc_vec2i){ .x = 750, .y = 350 }, 50,
 			       xc_preset_colour(XC_PURPLE));
 }

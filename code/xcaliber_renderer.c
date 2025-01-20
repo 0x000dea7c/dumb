@@ -28,7 +28,7 @@ xcr_put_pixel(xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 }
 
 static inline void
-plot_points(xcr_context *ctx, xcr_point center, xcr_point p, uint32_t c)
+plot_points(xcr_context *ctx, xc_vec2i center, xc_vec2i p, uint32_t c)
 {
 	/* each point I compute gives me 8 points on the circle (symmetry) */
 
@@ -52,7 +52,7 @@ plot_points(xcr_context *ctx, xcr_point center, xcr_point p, uint32_t c)
 }
 
 static inline void
-draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
+draw_horizontal_line_bresenham(xcr_context *ctx, xc_vec2i p0, xc_vec2i p1,
 			       uint32_t colour, int32_t dx, int32_t dy,
 			       int32_t dy_abs)
 {
@@ -81,7 +81,7 @@ draw_horizontal_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 }
 
 static inline void
-draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
+draw_vertical_line_bresenham(xcr_context *ctx, xc_vec2i p0, xc_vec2i p1,
 			     uint32_t colour, int32_t dx, int32_t dy,
 			     int32_t dy_abs)
 {
@@ -114,8 +114,7 @@ draw_vertical_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 }
 
 static inline void
-draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
-		    uint32_t colour)
+draw_line_bresenham(xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour)
 {
 	int32_t dx = p1.x - p0.x;
 	int32_t dy = p1.y - p0.y;
@@ -133,11 +132,11 @@ draw_line_bresenham(xcr_context *ctx, xcr_point p0, xcr_point p1,
 }
 
 static inline void
-draw_circle_midpoint(xcr_context *ctx, xcr_point center, int32_t r,
+draw_circle_midpoint(xcr_context *ctx, xc_vec2i center, int32_t r,
 		     uint32_t colour)
 {
 	/* start at the top! */
-	xcr_point curr = { .x = 0, .y = r };
+	xc_vec2i curr = { .x = 0, .y = r };
 	int32_t D = 3 - (2 * r);
 
 	plot_points(ctx, center, curr, colour);
@@ -155,21 +154,22 @@ draw_circle_midpoint(xcr_context *ctx, xcr_point center, int32_t r,
 	}
 }
 
-static inline bool
-point_inside_triangle(xcr_point P, xcr_triangle T)
+static inline int32_t
+xc_edge_function(xc_vec2i a, xc_vec2i b, xc_vec2i p)
 {
-	/* AB and P */
-	int32_t edge0 = (T.p1.x - T.p0.x) * (P.y - T.p0.y) -
-			(T.p1.y - T.p0.y) * (P.x - T.p0.x);
-	/* BC and P */
-	int32_t edge1 = (T.p2.x - T.p1.x) * (P.y - T.p1.y) -
-			(T.p2.y - T.p1.y) * (P.x - T.p1.x);
-	/* CA and P */
-	int32_t edge2 = (T.p0.x - T.p2.x) * (P.y - T.p2.y) -
-			(T.p0.y - T.p2.y) * (P.x - T.p2.x);
+	xc_vec2i edge = xc_vec2i_sub(b, a);
+	xc_vec2i to_p = xc_vec2i_sub(p, a);
+	return xc_vec2i_cross_product(edge, to_p);
+}
 
-	return (edge0 >= 0 && edge1 >= 0 && edge2 >= 0) ||
-	       (edge0 <= 0 && edge1 <= 0 && edge2 <= 0);
+static inline bool
+point_inside_triangle(xc_vec2i p, xc_vec2i a, xc_vec2i b, xc_vec2i c)
+{
+	int32_t edge0 = xc_edge_function(a, b, p);
+	int32_t edge1 = xc_edge_function(b, c, p);
+	int32_t edge2 = xc_edge_function(c, a, p);
+	return (edge0 > 0 && edge1 > 0 && edge2 > 0) ||
+	       (edge0 < 0 && edge1 < 0 && edge2 < 0);
 }
 
 xcr_context *
@@ -229,20 +229,20 @@ xcr_set_bg_colour(xcr_context *ctx, uint32_t colour)
 }
 
 void
-xcr_draw_line(xcr_context *ctx, xcr_point p0, xcr_point p1, uint32_t colour)
+xcr_draw_line(xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour)
 {
 	draw_line_bresenham(ctx, p0, p1, colour);
 }
 
 void
-xcr_draw_quad_outline(xcr_context *ctx, xcr_point p0, int32_t width,
+xcr_draw_quad_outline(xcr_context *ctx, xc_vec2i p0, int32_t width,
 		      int32_t height, uint32_t colour)
 {
-	xcr_point p1 = { .x = p0.x, .y = p0.y + height };
+	xc_vec2i p1 = { .x = p0.x, .y = p0.y + height };
 
-	xcr_point p2 = { .x = p0.x + width, .y = p0.y };
+	xc_vec2i p2 = { .x = p0.x + width, .y = p0.y };
 
-	xcr_point p3 = { .x = p0.x + width, .y = p0.y + height };
+	xc_vec2i p3 = { .x = p0.x + width, .y = p0.y + height };
 
 	xcr_draw_line(ctx, p0, p2, colour);
 	xcr_draw_line(ctx, p0, p1, colour);
@@ -251,23 +251,22 @@ xcr_draw_quad_outline(xcr_context *ctx, xcr_point p0, int32_t width,
 }
 
 void
-xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle,
-			  uint32_t colour)
+xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle T, uint32_t colour)
 {
-	xcr_draw_line(ctx, triangle.p0, triangle.p1, colour);
-	xcr_draw_line(ctx, triangle.p1, triangle.p2, colour);
-	xcr_draw_line(ctx, triangle.p2, triangle.p0, colour);
+	xcr_draw_line(ctx, T.p0, T.p1, colour);
+	xcr_draw_line(ctx, T.p1, T.p2, colour);
+	xcr_draw_line(ctx, T.p2, T.p0, colour);
 }
 
 void
-xcr_draw_circle_outline(xcr_context *ctx, xcr_point center, int32_t r,
+xcr_draw_circle_outline(xcr_context *ctx, xc_vec2i center, int32_t r,
 			uint32_t colour)
 {
 	draw_circle_midpoint(ctx, center, r, colour);
 }
 
 void
-xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width,
+xcr_draw_quad_filled(xcr_context *ctx, xc_vec2i p0, int32_t width,
 		     int32_t height, uint32_t colour)
 {
 	/* Just in case I pass some weird shit as arguments... Like intentionally
@@ -287,19 +286,18 @@ xcr_draw_quad_filled(xcr_context *ctx, xcr_point p0, int32_t width,
 }
 
 void
-xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
-			 uint32_t colour)
+xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle T, uint32_t colour)
 
 {
 	/* Find bounding box */
-	int32_t xmin =
-		XC_MIN(triangle.p0.x, XC_MIN(triangle.p1.x, triangle.p2.x));
-	int32_t ymin =
-		XC_MIN(triangle.p0.y, XC_MIN(triangle.p1.y, triangle.p2.y));
-	int32_t xmax =
-		XC_MAX(triangle.p0.x, XC_MAX(triangle.p1.x, triangle.p2.x));
-	int32_t ymax =
-		XC_MAX(triangle.p0.y, XC_MAX(triangle.p1.y, triangle.p2.y));
+	int32_t xmin = XC_MIN((int32_t)T.p0.x,
+			      XC_MIN((int32_t)T.p1.x, (int32_t)T.p2.x));
+	int32_t ymin = XC_MIN((int32_t)T.p0.y,
+			      XC_MIN((int32_t)T.p1.y, (int32_t)T.p2.y));
+	int32_t xmax = XC_MAX((int32_t)T.p0.x,
+			      XC_MAX((int32_t)T.p1.x, (int32_t)T.p2.x));
+	int32_t ymax = XC_MAX((int32_t)T.p0.y,
+			      XC_MAX((int32_t)T.p1.y, (int32_t)T.p2.y));
 
 	/* Bounds checking */
 	xmin = XC_MAX(xmin, 0);
@@ -310,8 +308,8 @@ xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
 	/* Scan each line and fill if I'm inside the triangle */
 	for (int32_t y = ymin; y <= ymax; ++y) {
 		for (int32_t x = xmin; x <= xmax; ++x) {
-			if (point_inside_triangle((xcr_point){ .x = x, .y = y },
-						  triangle)) {
+			if (point_inside_triangle((xc_vec2i){ .x = x, .y = y },
+						  T.p0, T.p1, T.p2)) {
 				xcr_put_pixel(ctx, x, y, colour);
 			}
 		}
@@ -319,7 +317,7 @@ xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle triangle,
 }
 
 void
-xcr_draw_circle_filled(xcr_context *ctx, xcr_point center, int32_t r,
+xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r,
 		       uint32_t colour)
 {
 	/* x² + y² = r² */

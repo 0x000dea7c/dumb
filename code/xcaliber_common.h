@@ -12,4 +12,7 @@
 		a = SWAP_tmp;      \
 	} while (0)
 
+#define f32_t float
+#define f64_t double
+
 #endif
