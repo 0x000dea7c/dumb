@@ -7,37 +7,65 @@
 #include <stdio.h>
 #include <assert.h>
 
+/* FIXME: understand fixed floating point precision used for filling triangles, 16.16 format */
+#define EDGES_FP_SHIFT 16
+
 #if defined(__AVX2__)
-#define XC_FILL_PIXELS_SIMD(dst, colour, count) \
+#define XC_FILL_PIXELS_SIMD_ALIGNED(dst, colour, count) \
     __asm__ volatile( \
         /* Load chunk count into rax */ \
-        "movq %2, %%rax\n\t" \
+        "movl %2, %%eax\n\t" \
         /* Broadcast 32-bit colour to all 8 lanes of ymm0 */ \
         "vpbroadcastd %0, %%ymm0\n\t" \
         /* Load destination buffer address into rcx */ \
         "movq %1, %%rcx\n\t" \
         /* Main loop label */ \
         "1:\n\t" \
-        /* Store 8 pixels (256 bits) aligned */ \
-        "vmovdqa %%ymm0, (%%rcx)\n\t" \
+        /* Store 8 pixels (256 bits) */ \
+	"vmovdqa %%ymm0, (%%rcx)\n\t" \
         /* Move to next chunk (32 bytes = 8 pixels × 4 bytes) */ \
         "addq $32, %%rcx\n\t" \
         /* Decrement counter */ \
-        "decq %%rax\n\t" \
+        "dec %%eax\n\t" \
         /* Loop if counter not zero */ \
         "jnz 1b\n\t" \
         : /* No outputs */ \
         : "m"(colour), /* %0: colour to broadcast */ \
           "r"(dst),    /* %1: destination buffer */ \
           "r"(count)   /* %2: number of chunks */ \
-        : "ymm0", "rax", "rcx", "memory" \
+        : "ymm0", "eax", "rcx", "memory" \
+    )
+
+#define XC_FILL_PIXELS_SIMD_UNALIGNED(dst, colour, count) \
+    __asm__ volatile( \
+        /* Load chunk count into rax */ \
+        "movl %2, %%eax\n\t" \
+        /* Broadcast 32-bit colour to all 8 lanes of ymm0 */ \
+        "vpbroadcastd %0, %%ymm0\n\t" \
+        /* Load destination buffer address into rcx */ \
+        "movq %1, %%rcx\n\t" \
+        /* Main loop label */ \
+        "1:\n\t" \
+        /* Store 8 pixels (256 bits) */ \
+	"vmovdqu %%ymm0, (%%rcx)\n\t" \
+        /* Move to next chunk (32 bytes = 8 pixels × 4 bytes) */ \
+        "addq $32, %%rcx\n\t" \
+        /* Decrement counter */ \
+        "dec %%eax\n\t" \
+        /* Loop if counter not zero */ \
+        "jnz 1b\n\t" \
+        : /* No outputs */ \
+        : "m"(colour), /* %0: colour to broadcast */ \
+          "r"(dst),    /* %1: destination buffer */ \
+          "r"(count)   /* %2: number of chunks */ \
+        : "ymm0", "eax", "rcx", "memory" \
     )
 
 #elif defined(__SSE4_2__)
-#define XC_FILL_PIXELS_SIMD(dst, colour, count) \
+#define XC_FILL_PIXELS_SIMD_ALIGNED(dst, colour, count, aligned) \
     __asm__ volatile( \
         /* Load chunk count into rax */ \
-        "movq %2, %%rax\n\t" \
+        "movl %2, %%eax\n\t" \
         /* Move 32-bit colour into lowest lane of xmm0 */ \
         "movd %0, %%xmm0\n\t" \
         /* Broadcast to all 4 lanes */ \
@@ -47,18 +75,43 @@
         /* Main loop label */ \
         "1:\n\t" \
         /* Store 4 pixels (128 bits) aligned */ \
-        "movdqa %%xmm0, (%%rcx)\n\t" \
+	"movdqa %%xmm0, (%%rcx)\n\t" \
         /* Move to next chunk (16 bytes = 4 pixels × 4 bytes) */ \
         "addq $16, %%rcx\n\t" \
         /* Decrement counter */ \
-        "decq %%rax\n\t" \
+        "dec %%eax\n\t" \
         /* Loop if counter not zero */ \
         "jnz 1b\n\t" \
         : /* No outputs */ \
         : "m"(colour), /* %0: colour to broadcast */ \
           "r"(dst),    /* %1: destination buffer */ \
           "r"(count)   /* %2: number of chunks */ \
-        : "xmm0", "rax", "rcx", "memory" \
+        : "xmm0", "eax", "rcx", "memory" \
+    )
+
+#define XC_FILL_PIXELS_SIMD_UNALIGNED(dst, colour, count)	\
+    __asm__ volatile( \
+        /* Load chunk count into rax */ \
+        "movl %2, %%eax\n\t" \
+        /* Broadcast 32-bit colour to all 8 lanes of ymm0 */ \
+        "vpbroadcastd %0, %%ymm0\n\t" \
+        /* Load destination buffer address into rcx */ \
+        "movq %1, %%rcx\n\t" \
+        /* Main loop label */ \
+        "1:\n\t" \
+        /* Store 8 pixels (256 bits) */ \
+	"movdqu %%xmm0, (%%rcx)\n\t" \
+        /* Move to next chunk (32 bytes = 8 pixels × 4 bytes) */ \
+        "addq $32, %%rcx\n\t" \
+        /* Decrement counter */ \
+        "dec %%eax\n\t" \
+        /* Loop if counter not zero */ \
+        "jnz 1b\n\t" \
+        : /* No outputs */ \
+        : "m"(colour), /* %0: colour to broadcast */ \
+          "r"(dst),    /* %1: destination buffer */ \
+          "r"(count)   /* %2: number of chunks */ \
+        : "ymm0", "eax", "rcx", "memory" \
     )
 
 #else
@@ -226,8 +279,7 @@ point_inside_triangle(xc_vec2i p, xc_vec2i a, xc_vec2i b, xc_vec2i c)
 	int32_t edge0 = xc_edge_function(a, b, p);
 	int32_t edge1 = xc_edge_function(b, c, p);
 	int32_t edge2 = xc_edge_function(c, a, p);
-	return (edge0 > 0 && edge1 > 0 && edge2 > 0) ||
-	       (edge0 < 0 && edge1 < 0 && edge2 < 0);
+	return (edge0 > 0 && edge1 > 0 && edge2 > 0) || (edge0 < 0 && edge1 < 0 && edge2 < 0);
 }
 
 static void
@@ -248,12 +300,29 @@ draw_triangle_filled_bbox(xcr_context *ctx, xcr_triangle T, uint32_t colour)
 	/* Scan each line and fill if I'm inside the triangle */
 	for (int32_t y = ymin; y <= ymax; ++y) {
 		for (int32_t x = xmin; x <= xmax; ++x) {
-			if (point_inside_triangle((xc_vec2i){ .x = x, .y = y },
-						  T.p0, T.p1, T.p2)) {
+			if (point_inside_triangle((xc_vec2i){ .x = x, .y = y }, T.p0, T.p1, T.p2)) {
 				xcr_put_pixel(ctx, x, y, colour);
 			}
 		}
 	}
+}
+
+static inline int32_t
+get_simd_width(void)
+{
+#if defined(__AVX2__)
+	return 8;
+#elif defined(__SSE4_2__)
+	return 4;
+#else
+	#error "fuck you, game engine needs at least SSE4.2"
+#endif
+}
+
+static void
+draw_triangle_filled_barycentric(xcr_context *ctx, xcr_triangle T, uint32_t colour)
+{
+
 }
 
 xcr_context *
@@ -274,7 +343,7 @@ void
 xcr_set_bg_colour(xcr_context *ctx, uint32_t colour)
 {
 	uint32_t *pixels = ctx->fb->pixels;
-	XC_FILL_PIXELS_SIMD(pixels, colour, ctx->fb->simd_chunks);
+	XC_FILL_PIXELS_SIMD_ALIGNED(pixels, colour, ctx->fb->simd_chunks);
 }
 
 void
@@ -338,6 +407,7 @@ void
 xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle T, uint32_t colour)
 {
 	draw_triangle_filled_bbox(ctx, T, colour);
+	// draw_triangle_filled_edges(ctx, T, colour);
 }
 
 void

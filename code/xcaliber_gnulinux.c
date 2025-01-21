@@ -141,9 +141,9 @@ fb_init(void)
 	fb.pixel_count = (uint32_t)fb.width * (uint32_t)fb.height;
 	fb.byte_size = fb.pixel_count * sizeof(uint32_t);
 #if defined(__AVX2__)
-	fb.simd_chunks = fb.pixel_count / 8;
+	fb.simd_chunks = (int32_t)(fb.pixel_count / 8);
 #elif defined(__SSE4_2__)
-	fb.simd_chunks = fb.pixel_count / 4;
+	fb.simd_chunks = (int32_t)(fb.pixel_count / 4);
 #else
 	#error "engine needs at least SSE4.2 support"
 #endif

@@ -27,14 +27,14 @@ typedef struct xc_cfg {
 	bool vsync;
 } xc_cfg;
 
-typedef struct  xc_framebuffer {
-	uint64_t simd_chunks;
+typedef struct xc_framebuffer {
 	uint32_t *pixels;
 	uint32_t pixel_count;
 	uint32_t byte_size;
 	int32_t width;
 	int32_t height;
 	int32_t pitch; /* Or stride. Number of bytes between the start of one row of pixels to the next one. */
+	int32_t simd_chunks;
 } xc_framebuffer;
 
 #endif

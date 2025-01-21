@@ -21,7 +21,6 @@ fast_sse_rsqrt(float n)
 
 	   Example:
 
-	   n = 9
 	   - (n / 2) * (1 / √n) * (1 / √n)
 	   - (n / 2) * (1 / (√n)²)
 	   - (n / 2) * (1 / n)
