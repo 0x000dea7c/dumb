@@ -39,6 +39,7 @@ Game inspired by XCaliber from TempleOS.
 - https://en.wikipedia.org/wiki/Scanline_rendering
 - https://nerdparadise.com/math/pointinatriangle
 - https://web.archive.org/web/20210208132927/http://assemblyrequired.crashworks.org/timing-square-root/
+- https://solhsa.com/tri/index.html (optimised triangle rasteriser)
 
 # Tasks
 
@@ -77,8 +78,7 @@ Game inspired by XCaliber from TempleOS.
 - X Refactor, create a renderer module with a decent API.
 - X Add bound checking to framebuffer somehow.
 - X "Flood fill". More like filled primitives.
-- Parametrise AVX2 / SSE / SSE2.
-Fix bug, when I'm using SSE2 is segfaults
+- X Parametrise AVX2 / SSE / SSE2.
 - X Create vector data types to improve readability.
 - Improve triangle rasteriser.
 - Clipping for all primitives.
