@@ -11,9 +11,7 @@
 typedef struct xcr_context xcr_context;
 
 typedef struct xcr_triangle {
-	xc_vec2i p0;
-	xc_vec2i p1;
-	xc_vec2i p2;
+	xc_vec2i vertices[3];
 } xcr_triangle;
 
 xcr_context *xcr_create(linear_arena *arena, xc_framebuffer *fb);

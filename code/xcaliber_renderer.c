@@ -265,46 +265,10 @@ draw_circle_midpoint(xcr_context *ctx, xc_vec2i center, int32_t r,
 	}
 }
 
-static inline int32_t
-xc_edge_function(xc_vec2i a, xc_vec2i b, xc_vec2i p)
-{
-	xc_vec2i edge = xc_vec2i_sub(b, a);
-	xc_vec2i to_p = xc_vec2i_sub(p, a);
-	return xc_vec2i_cross_product(edge, to_p);
-}
-
 static inline bool
-point_inside_triangle(xc_vec2i p, xc_vec2i a, xc_vec2i b, xc_vec2i c)
+point_inside_edge(xc_vec2i p, int32_t A, int32_t B, int32_t C)
 {
-	int32_t edge0 = xc_edge_function(a, b, p);
-	int32_t edge1 = xc_edge_function(b, c, p);
-	int32_t edge2 = xc_edge_function(c, a, p);
-	return (edge0 > 0 && edge1 > 0 && edge2 > 0) || (edge0 < 0 && edge1 < 0 && edge2 < 0);
-}
-
-static void
-draw_triangle_filled_bbox(xcr_context *ctx, xcr_triangle T, uint32_t colour)
-{
-	/* Find bounding box */
-	int32_t xmin = XC_MIN(T.p0.x, XC_MIN(T.p1.x, T.p2.x));
-	int32_t ymin = XC_MIN(T.p0.y, XC_MIN(T.p1.y, T.p2.y));
-	int32_t xmax = XC_MAX(T.p0.x, XC_MAX(T.p1.x, T.p2.x));
-	int32_t ymax = XC_MAX(T.p0.y, XC_MAX(T.p1.y, T.p2.y));
-
-	/* Bounds checking */
-	xmin = XC_MAX(xmin, 0);
-	ymin = XC_MAX(ymin, 0);
-	xmax = XC_MIN(xmax, ctx->fb->width - 1);
-	ymax = XC_MIN(ymax, ctx->fb->height - 1);
-
-	/* Scan each line and fill if I'm inside the triangle */
-	for (int32_t y = ymin; y <= ymax; ++y) {
-		for (int32_t x = xmin; x <= xmax; ++x) {
-			if (point_inside_triangle((xc_vec2i){ .x = x, .y = y }, T.p0, T.p1, T.p2)) {
-				xcr_put_pixel(ctx, x, y, colour);
-			}
-		}
-	}
+	return A * p.x + B * p.y + C > 0;
 }
 
 static inline int32_t
@@ -320,9 +284,63 @@ get_simd_width(void)
 }
 
 static void
-draw_triangle_filled_barycentric(xcr_context *ctx, xcr_triangle T, uint32_t colour)
+draw_triangle_filled_bbox(xcr_context *ctx, xcr_triangle T, uint32_t colour)
 {
+	/* Find bounding box */
+	int32_t xmin = XC_MIN3(T.vertices[0].x, T.vertices[1].x, T.vertices[2].x);
+	int32_t ymin = XC_MIN3(T.vertices[0].y, T.vertices[1].y, T.vertices[2].y);
+	int32_t xmax = XC_MAX3(T.vertices[0].x, T.vertices[1].x, T.vertices[2].x);
+	int32_t ymax = XC_MAX3(T.vertices[0].y, T.vertices[1].y, T.vertices[2].y);
 
+	/* Bounds checking */
+	xmin = XC_MAX(xmin, 0);
+	ymin = XC_MAX(ymin, 0);
+	xmax = XC_MIN(xmax, ctx->fb->width - 1);
+	ymax = XC_MIN(ymax, ctx->fb->height - 1);
+
+	/* pre-compute edge function constants, change in Y, change in X and cross product */
+	/* A01x + B01y + C01 = 0 */
+	int32_t const A01 = T.vertices[0].y - T.vertices[1].y;
+	int32_t const B01 = T.vertices[1].x - T.vertices[0].x;
+	int32_t const C01 = T.vertices[0].x * T.vertices[1].y - T.vertices[0].y * T.vertices[1].x;
+
+	int32_t const A11 = T.vertices[1].y - T.vertices[2].y;
+	int32_t const B11 = T.vertices[2].x - T.vertices[1].x;
+	int32_t const C11 = T.vertices[1].x * T.vertices[2].y - T.vertices[1].y * T.vertices[2].x;
+
+	int32_t const A20 = T.vertices[2].y - T.vertices[0].y;
+	int32_t const B20 = T.vertices[0].x - T.vertices[2].x;
+	int32_t const C20 = T.vertices[2].x * T.vertices[0].y - T.vertices[2].y * T.vertices[0].x;
+
+	int32_t const simd_width = get_simd_width();
+
+	/* scanlines */
+	for (int32_t y = ymin; y <= ymax; ++y) {
+		uint32_t *row = &ctx->fb->pixels[y * ctx->fb->width + xmin];
+
+		for (int32_t x = xmin; x <= xmax; x += simd_width) {
+			xc_vec2i const p = { .x = x, .y = y };
+			int32_t const w = XC_MIN(simd_width, xmax - x + 1);
+
+			if (w == simd_width) {
+				if (point_inside_edge(p, A01, B01, C01) &&
+				    point_inside_edge(p, A11, B11, C11) &&
+				    point_inside_edge(p, A20, B20, C20)) {
+					XC_FILL_PIXELS_SIMD_UNALIGNED(row, colour, 1);
+				}
+				row += simd_width;
+			} else {
+				if (point_inside_edge(p, A01, B01, C01) &&
+				    point_inside_edge(p, A11, B11, C11) &&
+				    point_inside_edge(p, A20, B20, C20)) {
+					for (int32_t i = 0; i < w; ++i) {
+						*row = colour;
+						++row;
+					}
+				}
+			}
+		}
+	}
 }
 
 xcr_context *
@@ -371,9 +389,9 @@ xcr_draw_quad_outline(xcr_context *ctx, xc_vec2i p0, int32_t width,
 void
 xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle T, uint32_t colour)
 {
-	xcr_draw_line(ctx, T.p0, T.p1, colour);
-	xcr_draw_line(ctx, T.p1, T.p2, colour);
-	xcr_draw_line(ctx, T.p2, T.p0, colour);
+	xcr_draw_line(ctx, T.vertices[0], T.vertices[1], colour);
+	xcr_draw_line(ctx, T.vertices[1], T.vertices[2], colour);
+	xcr_draw_line(ctx, T.vertices[2], T.vertices[0], colour);
 }
 
 void

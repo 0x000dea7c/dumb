@@ -7,6 +7,8 @@
 #define XC_ABS(a) ((a) >= 0 ? (a) : (-(a)))
 #define XC_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define XC_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define XC_MAX3(a,b,c) XC_MAX(XC_MAX(a,b),c)
+#define XC_MIN3(a,b,c) XC_MIN(XC_MIN(a,b),c)
 
 /* I'm aligning for SIMD */
 typedef struct xc_vec2f {

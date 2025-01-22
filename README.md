@@ -40,6 +40,7 @@ Game inspired by XCaliber from TempleOS.
 - https://nerdparadise.com/math/pointinatriangle
 - https://web.archive.org/web/20210208132927/http://assemblyrequired.crashworks.org/timing-square-root/
 - https://solhsa.com/tri/index.html (optimised triangle rasteriser)
+- https://youtu.be/k5wtuKWmV48
 
 # Tasks
 
@@ -80,7 +81,10 @@ Game inspired by XCaliber from TempleOS.
 - X "Flood fill". More like filled primitives.
 - X Parametrise AVX2 / SSE / SSE2.
 - X Create vector data types to improve readability.
-- Improve triangle rasteriser.
+- X Improve triangle rasteriser.
+- Test case with triangles that share edges.
+- Change code to handle share edge case.
+- Understand everything you did until here! And write something!
 - Clipping for all primitives.
 - Basic transformations (rotation, scaling)
 - Textures
