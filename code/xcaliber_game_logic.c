@@ -13,85 +13,63 @@ game_update(__attribute__((unused)) xc_ctx *ctx)
 }
 
 XC_API void
-game_render(xc_ctx *ctx)
+game_render(xc_ctx *ctx, stack_arena *a)
 {
 	uint32_t line_colour = xc_preset_colour(XC_BLACK);
 
 	xcr_set_bg_colour(ctx->renderer_ctx, xc_preset_colour(XC_BLUE));
 
 	/* L */
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 100 },
-		      (xc_vec2i){ .x = 50, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 400 },
-		      (xc_vec2i){ .x = 200, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 100 }, (xc_vec2i){ .x = 50, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 400 }, (xc_vec2i){ .x = 200, .y = 400 },
+		      line_colour);
 
 	/* A */
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 320, .y = 100 },
-		      (xc_vec2i){ .x = 220, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 255, .y = 300 },
-		      (xc_vec2i){ .x = 385, .y = 300 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 320, .y = 100 },
-		      (xc_vec2i){ .x = 420, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 320, .y = 100 }, (xc_vec2i){ .x = 220, .y = 400 },
+		      line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 255, .y = 300 }, (xc_vec2i){ .x = 385, .y = 300 },
+		      line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 320, .y = 100 }, (xc_vec2i){ .x = 420, .y = 400 },
+		      line_colour);
 
 	/* I */
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 440, .y = 100 },
-		      (xc_vec2i){ .x = 440, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 440, .y = 100 }, (xc_vec2i){ .x = 440, .y = 400 },
+		      line_colour);
 
 	/* N */
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 520, .y = 100 },
-		      (xc_vec2i){ .x = 520, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 520, .y = 100 },
-		      (xc_vec2i){ .x = 650, .y = 400 }, line_colour);
-	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 650, .y = 100 },
-		      (xc_vec2i){ .x = 650, .y = 400 }, line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 520, .y = 100 }, (xc_vec2i){ .x = 520, .y = 400 },
+		      line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 520, .y = 100 }, (xc_vec2i){ .x = 650, .y = 400 },
+		      line_colour);
+	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 650, .y = 100 }, (xc_vec2i){ .x = 650, .y = 400 },
+		      line_colour);
 
-	xcr_draw_quad_outline(ctx->renderer_ctx,
-			      (xc_vec2i){ .x = 700, .y = 500 }, 200, 200,
+	xcr_draw_quad_outline(ctx->renderer_ctx, (xc_vec2i){ .x = 700, .y = 500 }, 200, 200,
 			      xc_preset_colour(XC_WHITE));
 
-	xcr_draw_triangle_outline(
-		ctx->renderer_ctx,
-		(xcr_triangle){ .vertices = { { .x = 550, .y = 500 },
-					      { .x = 550, .y = 600 },
-					      { .x = 600, .y = 550 } } },
-		xc_preset_colour(XC_BLACK));
+	xcr_draw_triangle_outline(ctx->renderer_ctx,
+				  (xcr_triangle){ .vertices = { { .x = 550, .y = 500 },
+								{ .x = 550, .y = 600 },
+								{ .x = 600, .y = 550 } } },
+				  xc_preset_colour(XC_BLACK));
 
-	xcr_draw_circle_outline(ctx->renderer_ctx,
-				(xc_vec2i){ .x = 200, .y = 500 }, 50,
-				xc_preset_colour(XC_WHITE));
+	xcr_draw_circle_outline(ctx->renderer_ctx, (xc_vec2i){ .x = 200, .y = 500 }, 50, xc_preset_colour(XC_WHITE));
 
-	xcr_draw_quad_filled(ctx->renderer_ctx,
-			     (xc_vec2i){ .x = 400, .y = 500 }, 50, 50,
-			     xc_preset_colour(XC_BLACK));
+	xcr_draw_quad_filled(ctx->renderer_ctx, (xc_vec2i){ .x = 400, .y = 500 }, 50, 50, xc_preset_colour(XC_BLACK));
 
-	xcr_draw_quad_filled(ctx->renderer_ctx,
-			     (xc_vec2i){ .x = 400, .y = 750 }, 50, 50,
-			     xc_preset_colour(XC_RED));
+	xcr_draw_quad_filled(ctx->renderer_ctx, (xc_vec2i){ .x = 400, .y = 750 }, 50, 50, xc_preset_colour(XC_RED));
 
-	xcr_draw_quad_filled(ctx->renderer_ctx,
-			     (xc_vec2i){ .x = 900, .y = 150 }, 50, 50,
-			     xc_preset_colour(XC_WHITE));
-
-	xcr_draw_triangle_filled(ctx->renderer_ctx,
-				 (xcr_triangle){ { { .x = 350, .y = 400 },
-						   { .x = 350, .y = 500 },
-						   { .x = 400, .y = 450 } } },
-				 xc_preset_colour(XC_RED));
-
-	xcr_draw_triangle_filled(ctx->renderer_ctx,
-				 (xcr_triangle){ { { .x = 0, .y = 400 },
-						   { .x = 0, .y = 500 },
-						   { .x = 30, .y = 450 } } },
-				 xc_preset_colour(XC_RED));
+	xcr_draw_quad_filled(ctx->renderer_ctx, (xc_vec2i){ .x = 900, .y = 150 }, 50, 50, xc_preset_colour(XC_WHITE));
 
 	xcr_draw_triangle_filled(
-		ctx->renderer_ctx,
-		(xcr_triangle){ .vertices = { { .x = 0, .y = 650 },
-					      { .x = 256, .y = 650 },
-					      { .x = 256, .y = 750 } } },
-		xc_preset_colour(XC_RED));
+		ctx->renderer_ctx, a,
+		(xcr_triangle){ { { .x = 0, .y = 0 }, { .x = 256, .y = 0 }, { .x = 128, .y = 128 } } },
+		xc_preset_colour(XC_PURPLE));
 
-	xcr_draw_circle_filled(ctx->renderer_ctx,
-			       (xc_vec2i){ .x = 750, .y = 350 }, 50,
-			       xc_preset_colour(XC_PURPLE));
+	xcr_draw_triangle_filled(
+		ctx->renderer_ctx, a,
+		(xcr_triangle){ { { .x = 0, .y = 768 }, { .x = 256, .y = 768 }, { .x = 128, .y = 640 } } },
+		xc_preset_colour(XC_WHITE));
+
+	xcr_draw_circle_filled(ctx->renderer_ctx, (xc_vec2i){ .x = 750, .y = 350 }, 50, xc_preset_colour(XC_PURPLE));
 }

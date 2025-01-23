@@ -1,11 +1,13 @@
 #include "xcaliber_math.h"
+#include <assert.h>
 
-inline float
-fast_sse_rsqrt(float n)
+/* NOTE: the attribute is needed because compiling with O0 triggers a linker error... */
+__attribute__((always_inline)) inline f32_t
+fast_sse_rsqrt(f32_t n)
 {
-	float const three_halfs = 1.5f;
-	float const n_half = (float)n * 0.5f;
-	float rsqrt;
+	f32_t const three_halfs = 1.5f;
+	f32_t const n_half = (f32_t)n * 0.5f;
+	f32_t rsqrt;
 
 	/* computes 1 / √n (AN APPROXIMATION) and stores it in xmm0 and y */
 	/* AT&T syntax src, dst */
@@ -44,10 +46,10 @@ fast_sse_rsqrt(float n)
 	return rsqrt;
 }
 
-inline float
-fast_sse_sqrt(float n)
+__attribute__((always_inline)) inline f32_t
+fast_sse_sqrt(f32_t n)
 {
-	float y;
+	f32_t y;
 	__asm__ volatile("sqrtss %1, %%xmm0\n\t"
 			 "movss %%xmm0, %0\n\t"
 			 : "=m"(y)
@@ -56,14 +58,14 @@ fast_sse_sqrt(float n)
 	return y;
 }
 
-inline float
-xc_sqrt(float n)
+inline f32_t
+xc_sqrt(f32_t n)
 {
 	return fast_sse_sqrt(n);
 }
 
-inline float
-xc_rsqrt(float n)
+inline f32_t
+xc_rsqrt(f32_t n)
 {
 	return fast_sse_rsqrt(n);
 }
@@ -84,4 +86,29 @@ inline int32_t
 xc_vec2i_cross_product(xc_vec2i a, xc_vec2i b)
 {
 	return a.x * b.y - a.y * b.x;
+}
+
+inline int32_t *
+xc_interpolate_array(stack_arena *a, int32_t y0, int32_t x0, int32_t y1, int32_t x1, int32_t points)
+{
+	if (y0 > y1) {
+		XC_SWAP(int32_t, y0, y1);
+		XC_SWAP(int32_t, x0, x1);
+	}
+
+	int32_t const dx = x1 - x0;
+	int32_t const dy = y1 - y0;
+	int32_t *x_values = stack_arena_alloc(a, (uint32_t)points * sizeof(int32_t));
+
+	if (dy == 0) {
+		for (int32_t i = 0; i < points; ++i) {
+			x_values[i] = (x0 + dx * i) / points;
+		}
+	} else {
+		for (int32_t i = 0; i < points; ++i) {
+			x_values[i] = x0 + ((dx * i) / dy);
+		}
+	}
+
+	return x_values;
 }

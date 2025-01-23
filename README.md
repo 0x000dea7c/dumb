@@ -82,6 +82,7 @@ Game inspired by XCaliber from TempleOS.
 - X Parametrise AVX2 / SSE / SSE2.
 - X Create vector data types to improve readability.
 - X Improve triangle rasteriser.
+- Add colours per vertex and interpolation
 - Test case with triangles that share edges.
 - Change code to handle share edge case.
 - Understand everything you did until here! And write something!

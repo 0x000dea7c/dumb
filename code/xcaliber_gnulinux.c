@@ -2,6 +2,7 @@
 #include "xcaliber_common.h"
 #include "xcaliber_hot_reload.h"
 #include "xcaliber_linear_arena.h"
+#include "xcaliber_stack_arena.h"
 #include "xcaliber_renderer.h"
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,6 +10,7 @@
 #include <assert.h>
 
 #define XC_GAME_TOTAL_MEMORY XC_MEGABYTES(256ull)
+#define XC_SCRATCH_MEMORY XC_MEGABYTES(32ull)
 #define FIXED_TIMESTEP 1.0f / 60.0f
 #define GAME_LOGIC_LIB_NAME "libgamelogic.so"
 
@@ -19,7 +21,9 @@ static SDL_Renderer *sdl_renderer = NULL;
 
 /* my needed globals, hehe */
 static unsigned char *game_mem = NULL;
-static linear_arena arena;
+static unsigned char *game_scratch_mem = NULL;
+static linear_arena *lin_arena = NULL;
+static stack_arena *scratch_arena = NULL;
 static xc_hot_reload_lib_info game_logic_lib;
 static xc_ctx ctx;
 static xc_cfg cfg;
@@ -42,6 +46,18 @@ quit(void)
 
 	if (game_mem) {
 		free(game_mem);
+	}
+
+	if (game_scratch_mem) {
+		free(game_scratch_mem);
+	}
+
+	if (lin_arena) {
+		linear_arena_destroy(lin_arena);
+	}
+
+	if (scratch_arena) {
+		stack_arena_destroy(scratch_arena);
 	}
 
 	SDL_Quit();
@@ -99,14 +115,21 @@ cfg_init(void)
 static void
 mem_init(void)
 {
-	uint32_t const game_mem_len = XC_GAME_TOTAL_MEMORY;
+	lin_arena = linear_arena_create();
+	assert(lin_arena);
 
-	game_mem = malloc(game_mem_len);
-	if (!game_mem) {
-		panic("main game memory", "Couldn't alloc memory for the game");
-	}
+	scratch_arena = stack_arena_create();
+	assert(scratch_arena);
 
-	linear_arena_init(&arena, game_mem, game_mem_len);
+	game_mem = malloc(XC_GAME_TOTAL_MEMORY);
+	assert(game_mem);
+
+	game_scratch_mem = malloc(XC_SCRATCH_MEMORY);
+	assert(game_scratch_mem);
+
+	linear_arena_init(lin_arena, game_mem, XC_GAME_TOTAL_MEMORY);
+
+	stack_arena_init(scratch_arena, game_scratch_mem, XC_SCRATCH_MEMORY);
 }
 
 static void
@@ -147,7 +170,7 @@ fb_init(void)
 #else
 	#error "engine needs at least SSE4.2 support"
 #endif
-	fb.pixels = linear_arena_alloc(&arena, fb.byte_size);
+	fb.pixels = linear_arena_alloc(lin_arena, fb.byte_size);
 	if (!fb.pixels) {
 		panic("framebuffer init", "Couldn't allocate space for the framebuffer");
 	}
@@ -156,7 +179,7 @@ fb_init(void)
 static void
 renderer_init(void)
 {
-	ctx.renderer_ctx = xcr_create(&arena, &fb);
+	ctx.renderer_ctx = xcr_create(lin_arena, &fb);
 	if (!ctx.renderer_ctx) {
 		panic("renderer_init", "Couldn't create renderer");
 	}
@@ -242,7 +265,7 @@ run(void)
 
 		/* render as fast as possible with interpolation */
 		ctx.alpha = ctx.physics_accumulator / ctx.fixed_timestep;
-		game_logic_lib.render(&ctx);
+		game_logic_lib.render(&ctx, scratch_arena);
 
 		/* Copy my updated framebuffer to the GPU texture */
 		SDL_UpdateTexture(sdl_texture, NULL, fb.pixels, fb.pitch);
@@ -253,6 +276,8 @@ run(void)
 		SDL_RenderPresent(sdl_renderer);
 
 		++frame_count;
+
+		stack_arena_free_all(scratch_arena);
 	}
 }
 

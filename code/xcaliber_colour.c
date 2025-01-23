@@ -13,6 +13,5 @@ uint32_t
 xc_preset_colour(xc_colour_preset preset)
 {
 	xc_colour c = preset_colours[preset];
-	return (uint32_t)(c.r) << 24 | (uint32_t)(c.g) << 16 |
-	       (uint32_t)(c.b) << 8 | (uint32_t)(c.a);
+	return (uint32_t)(c.r) << 24 | (uint32_t)(c.g) << 16 | (uint32_t)(c.b) << 8 | (uint32_t)(c.a);
 }

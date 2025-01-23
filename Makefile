@@ -1,12 +1,12 @@
-# -fsanitize=address,leak,undefined they interfere with SIMD?
+# -fsanitize=address,leak,undefined they interfere with SIMD? -D_FORTIFY_SOURCE=2 (interferes with O0)
 CC               := gcc
 CC_FLAGS_WARN    := -Wall -Wextra -pedantic -Wformat -Wformat-security -Wconversion -Wshadow
-CC_FLAGS_DEBUG   := -O1 -ggdb3 -D_FORTIFY_SOURCE=2 -fstack-clash-protection -fcf-protection=full -march=native
+CC_FLAGS_DEBUG   := -O0 -ggdb3 -fstack-clash-protection -fcf-protection=full -march=native
 CC_FLAGS_RELEASE := -O3 -g -ffast-math -funroll-loops -flto -march=native
 # NOTE: Hidden symbols by default, I think that reduces the size of the
 # generated binary, which is nice
 SHARED_FLAGS     := -shared -fPIC -fvisibility=hidden
-GAME_LIB_SOURCES := code/xcaliber_game_logic.c code/xcaliber_renderer.c code/xcaliber_linear_arena.c code/xcaliber_math.c code/xcaliber_colour.c
+GAME_LIB_SOURCES := code/xcaliber_game_logic.c code/xcaliber_renderer.c code/xcaliber_linear_arena.c code/xcaliber_math.c code/xcaliber_colour.c code/xcaliber_stack_arena.c
 SOURCES          := $(filter-out code/xcaliber_game_logic.c, $(wildcard code/*.c))
 OBJECTS          := $(SOURCES:code/%.c=obj/%.o)
 TARGET           := xcaliber

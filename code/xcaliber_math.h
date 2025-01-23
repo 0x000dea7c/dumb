@@ -2,6 +2,7 @@
 #define XCALIBER_MATH_H
 
 #include "xcaliber_common.h"
+#include "xcaliber_stack_arena.h"
 #include <stdint.h>
 
 #define XC_ABS(a) ((a) >= 0 ? (a) : (-(a)))
@@ -10,7 +11,7 @@
 #define XC_MAX3(a,b,c) XC_MAX(XC_MAX(a,b),c)
 #define XC_MIN3(a,b,c) XC_MIN(XC_MIN(a,b),c)
 
-/* I'm aligning for SIMD */
+/* FIXME: I'm aligning for SIMD... 8 or 4? */
 typedef struct xc_vec2f {
 	f32_t x;
 	f32_t y;
@@ -30,5 +31,7 @@ xc_vec2i xc_vec2i_sub(xc_vec2i a, xc_vec2i b);
 xc_vec2i xc_vec2i_add(xc_vec2i a, xc_vec2i b);
 
 int32_t xc_vec2i_cross_product(xc_vec2i a, xc_vec2i b);
+
+int32_t *xc_interpolate_array(stack_arena *a, int32_t y0, int32_t x0, int32_t y1, int32_t x1, int32_t points);
 
 #endif

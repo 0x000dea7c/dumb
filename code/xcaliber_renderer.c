@@ -3,12 +3,10 @@
 #include "xcaliber_common.h"
 #include "xcaliber.h"
 #include "xcaliber_linear_arena.h"
+#include "xcaliber_stack_arena.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
-
-/* FIXME: understand fixed floating point precision used for filling triangles, 16.16 format */
-#define EDGES_FP_SHIFT 16
 
 #if defined(__AVX2__)
 #define XC_FILL_PIXELS_SIMD_ALIGNED(dst, colour, count) \
@@ -234,11 +232,9 @@ draw_line_bresenham(xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour)
 	bool steep = dy_abs > dx_abs;
 
 	if (steep) {
-		draw_vertical_line_bresenham(ctx, p0, p1, colour, dx, dy,
-					     dy_abs);
+		draw_vertical_line_bresenham(ctx, p0, p1, colour, dx, dy, dy_abs);
 	} else {
-		draw_horizontal_line_bresenham(ctx, p0, p1, colour, dx, dy,
-					       dy_abs);
+		draw_horizontal_line_bresenham(ctx, p0, p1, colour, dx, dy, dy_abs);
 	}
 }
 
@@ -283,61 +279,88 @@ get_simd_width(void)
 #endif
 }
 
-static void
-draw_triangle_filled_bbox(xcr_context *ctx, xcr_triangle T, uint32_t colour)
+/* puts everything into arr0 and frees arr1 */
+static int32_t *
+array_append(stack_arena *a, int32_t *arr0, int32_t *arr1, int32_t arr0_size, int32_t arr1_size)
 {
-	/* Find bounding box */
-	int32_t xmin = XC_MIN3(T.vertices[0].x, T.vertices[1].x, T.vertices[2].x);
-	int32_t ymin = XC_MIN3(T.vertices[0].y, T.vertices[1].y, T.vertices[2].y);
-	int32_t xmax = XC_MAX3(T.vertices[0].x, T.vertices[1].x, T.vertices[2].x);
-	int32_t ymax = XC_MAX3(T.vertices[0].y, T.vertices[1].y, T.vertices[2].y);
+	arr0 = stack_arena_resize(a, arr0, (uint64_t)arr0_size * sizeof(int32_t), (uint64_t)(arr0_size + arr1_size) * sizeof(int32_t));
+	assert(arr0);
 
-	/* Bounds checking */
-	xmin = XC_MAX(xmin, 0);
-	ymin = XC_MAX(ymin, 0);
-	xmax = XC_MIN(xmax, ctx->fb->width - 1);
-	ymax = XC_MIN(ymax, ctx->fb->height - 1);
+	int32_t j = 0;
+	int32_t const n = arr0_size + arr1_size;
 
-	/* pre-compute edge function constants, change in Y, change in X and cross product */
-	/* A01x + B01y + C01 = 0 */
-	int32_t const A01 = T.vertices[0].y - T.vertices[1].y;
-	int32_t const B01 = T.vertices[1].x - T.vertices[0].x;
-	int32_t const C01 = T.vertices[0].x * T.vertices[1].y - T.vertices[0].y * T.vertices[1].x;
+	for (int32_t i = arr0_size; i < n; ++i) {
+		arr0[i] = arr1[j++];
+	}
 
-	int32_t const A11 = T.vertices[1].y - T.vertices[2].y;
-	int32_t const B11 = T.vertices[2].x - T.vertices[1].x;
-	int32_t const C11 = T.vertices[1].x * T.vertices[2].y - T.vertices[1].y * T.vertices[2].x;
+	/* don't need arr1 anymore */
+	stack_arena_free(a, arr1);
 
-	int32_t const A20 = T.vertices[2].y - T.vertices[0].y;
-	int32_t const B20 = T.vertices[0].x - T.vertices[2].x;
-	int32_t const C20 = T.vertices[2].x * T.vertices[0].y - T.vertices[2].y * T.vertices[0].x;
+	return arr0;
+}
 
+static void
+draw_triangle_filled_interpolation(stack_arena *a, xcr_context *ctx, xcr_triangle T, uint32_t colour)
+{
+	/* algorithm from computers graphics from scratch, way better than my previous version */
+
+	/* sort vertices so that the first vertex is always at the top */
+	if (T.vertices[1].y < T.vertices[0].y) {
+		XC_SWAP(xc_vec2i, T.vertices[0], T.vertices[1]);
+	}
+
+	if (T.vertices[2].y < T.vertices[0].y) {
+		XC_SWAP(xc_vec2i, T.vertices[2], T.vertices[0]);
+	}
+
+	if (T.vertices[2].y < T.vertices[1].y) {
+		XC_SWAP(xc_vec2i, T.vertices[2], T.vertices[1]);
+	}
+
+	int32_t const x01_size = T.vertices[1].y - T.vertices[0].y + 1;
+	int32_t const x12_size = T.vertices[2].y - T.vertices[1].y + 1;
+	int32_t const x02_size = T.vertices[2].y - T.vertices[0].y + 1;
+
+	int32_t *x01 = xc_interpolate_array(a, T.vertices[0].y, T.vertices[0].x, T.vertices[1].y, T.vertices[1].x, x01_size);
+	assert(x01);
+	int32_t *x12 = xc_interpolate_array(a, T.vertices[1].y, T.vertices[1].x, T.vertices[2].y, T.vertices[2].x, x12_size);
+	assert(x12);
+	int32_t *x02 = xc_interpolate_array(a, T.vertices[0].y, T.vertices[0].x, T.vertices[2].y, T.vertices[2].x, x02_size);
+	assert(x02);
+
+	/* concatenate short sides */
+	int32_t *x012 = array_append(a, x01, x12, x01_size - 1, x12_size);
+
+	/* determine which array is the left and which one is the right */
+	int32_t *x_left, *x_right;
+	int32_t const mid = (x01_size + x12_size) >> 1;
 	int32_t const simd_width = get_simd_width();
 
-	/* scanlines */
-	for (int32_t y = ymin; y <= ymax; ++y) {
-		uint32_t *row = &ctx->fb->pixels[y * ctx->fb->width + xmin];
+	if (x02[mid] < x012[mid]) {
+		x_left = x02;
+		x_right = x012;
+	} else {
+		x_left = x012;
+		x_right = x02;
+	}
 
-		for (int32_t x = xmin; x <= xmax; x += simd_width) {
-			xc_vec2i const p = { .x = x, .y = y };
-			int32_t const w = XC_MIN(simd_width, xmax - x + 1);
+	/* draw horizontally */
+	for (int32_t y = T.vertices[0].y; y < T.vertices[2].y; ++y) {
+		int32_t const x_start = x_left[y - T.vertices[0].y];
+		int32_t const x_end = x_right[y - T.vertices[0].y];
+		int32_t const w = x_end - x_start + 1;
+		int32_t const chunks = w / simd_width;
 
-			if (w == simd_width) {
-				if (point_inside_edge(p, A01, B01, C01) &&
-				    point_inside_edge(p, A11, B11, C11) &&
-				    point_inside_edge(p, A20, B20, C20)) {
-					XC_FILL_PIXELS_SIMD_UNALIGNED(row, colour, 1);
-				}
-				row += simd_width;
-			} else {
-				if (point_inside_edge(p, A01, B01, C01) &&
-				    point_inside_edge(p, A11, B11, C11) &&
-				    point_inside_edge(p, A20, B20, C20)) {
-					for (int32_t i = 0; i < w; ++i) {
-						*row = colour;
-						++row;
-					}
-				}
+		if (chunks > 0) {
+			uint32_t *row = &ctx->fb->pixels[y * ctx->fb->width + x_start];
+			XC_FILL_PIXELS_SIMD_UNALIGNED(row, colour, chunks);
+
+			for (int32_t x = x_start + (chunks * simd_width); x <= x_end; ++x) {
+				xcr_put_pixel(ctx, x, y, colour);
+			}
+		} else {
+			for (int32_t x = x_start; x <= x_end; ++x) {
+				xcr_put_pixel(ctx, x, y, colour);
 			}
 		}
 	}
@@ -422,10 +445,9 @@ xcr_draw_quad_filled(xcr_context *ctx, xc_vec2i p0, int32_t width,
 }
 
 void
-xcr_draw_triangle_filled(xcr_context *ctx, xcr_triangle T, uint32_t colour)
+xcr_draw_triangle_filled(xcr_context *ctx, stack_arena *a, xcr_triangle T, uint32_t colour)
 {
-	draw_triangle_filled_bbox(ctx, T, colour);
-	// draw_triangle_filled_edges(ctx, T, colour);
+	draw_triangle_filled_interpolation(a, ctx, T, colour);
 }
 
 void
@@ -443,8 +465,7 @@ xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r,
 		if (width_sq >= 0) {
 			int32_t width = (int32_t)xc_sqrt((float)width_sq);
 			int32_t xstart = XC_MAX(center.x - width, 0);
-			int32_t xend =
-				XC_MIN(center.x + width, ctx->fb->width - 1);
+			int32_t xend = XC_MIN(center.x + width, ctx->fb->width - 1);
 
 			for (int32_t x = xstart; x <= xend; ++x) {
 				xcr_put_pixel(ctx, x, y, colour);

@@ -5,12 +5,20 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #if defined(__AVX2__)
 #define DEFAULT_ALIGNMENT (4 * sizeof(void *))
 #else
 #define DEFAULT_ALIGNMENT (2 * sizeof(void *))
 #endif
+
+struct linear_arena {
+	unsigned char *buf;
+	uint32_t buf_len;
+	uint32_t prev_offset;
+	uint32_t curr_offset;
+};
 
 static uintptr_t
 align_forward(uintptr_t ptr, uint32_t align)
@@ -45,8 +53,7 @@ linear_arena_alloc_align(linear_arena *a, uint32_t size, uint32_t align)
 }
 
 static void *
-linear_arena_resize_align(linear_arena *a, void *old_m, uint32_t old_size,
-			  uint32_t new_size, uint32_t align)
+linear_arena_resize_align(linear_arena *a, void *old_m, uint32_t old_size, uint32_t new_size, uint32_t align)
 {
 	assert(XC_IS_POWER_OF_TWO(align));
 
@@ -58,8 +65,7 @@ linear_arena_resize_align(linear_arena *a, void *old_m, uint32_t old_size,
 
 	/* if old memory isn't part of this linear_arena */
 	if (!(a->buf <= old_mem && old_mem < a->buf + a->buf_len)) {
-		assert(false &&
-		       "This memory addr doesn't belong to this arena!");
+		assert(false && "This memory addr doesn't belong to this arena!");
 		return NULL;
 	}
 
@@ -89,6 +95,12 @@ linear_arena_resize_align(linear_arena *a, void *old_m, uint32_t old_size,
 	return old_mem;
 }
 
+void *
+linear_arena_create(void)
+{
+	return malloc(sizeof(linear_arena));
+}
+
 void
 linear_arena_init(linear_arena *a, unsigned char *buf, uint32_t buf_len)
 {
@@ -110,9 +122,13 @@ linear_arena_free(linear_arena *a)
 }
 
 void *
-linear_arena_resize(linear_arena *a, void *old_mem, uint32_t old_size,
-		    uint32_t new_size)
+linear_arena_resize(linear_arena *a, void *old_mem, uint32_t old_size, uint32_t new_size)
 {
-	return linear_arena_resize_align(a, old_mem, old_size, new_size,
-					 DEFAULT_ALIGNMENT);
+	return linear_arena_resize_align(a, old_mem, old_size, new_size, DEFAULT_ALIGNMENT);
+}
+
+void
+linear_arena_destroy(linear_arena *a)
+{
+	free(a);
 }
