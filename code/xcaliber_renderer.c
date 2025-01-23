@@ -8,6 +8,18 @@
 #include <stdio.h>
 #include <assert.h>
 
+static inline int32_t
+get_simd_width(void)
+{
+#if defined(__AVX2__)
+	return 8;
+#elif defined(__SSE4_2__)
+	return 4;
+#else
+	#error "fuck you, game engine needs at least SSE4.2"
+#endif
+}
+
 #if defined(__AVX2__)
 #define XC_FILL_PIXELS_SIMD_ALIGNED(dst, colour, count) \
     __asm__ volatile( \
@@ -259,24 +271,6 @@ draw_circle_midpoint(xcr_context *ctx, xc_vec2i center, int32_t r,
 		++curr.x;
 		plot_points(ctx, center, curr, colour);
 	}
-}
-
-static inline bool
-point_inside_edge(xc_vec2i p, int32_t A, int32_t B, int32_t C)
-{
-	return A * p.x + B * p.y + C > 0;
-}
-
-static inline int32_t
-get_simd_width(void)
-{
-#if defined(__AVX2__)
-	return 8;
-#elif defined(__SSE4_2__)
-	return 4;
-#else
-	#error "fuck you, game engine needs at least SSE4.2"
-#endif
 }
 
 /* puts everything into arr0 and frees arr1 */
