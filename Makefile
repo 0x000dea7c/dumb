@@ -1,4 +1,4 @@
-# -fsanitize=address,leak,undefined they interfere with SIMD? -D_FORTIFY_SOURCE=2 (interferes with O0)
+# -fsanitize=address,leak,undefined -D_FORTIFY_SOURCE=2 (interferes with O0)
 CC               := gcc
 CC_FLAGS_WARN    := -Wall -Wextra -pedantic -Wformat -Wformat-security -Wconversion -Wshadow
 CC_FLAGS_DEBUG   := -O0 -ggdb3 -fstack-clash-protection -fcf-protection=full -march=native
