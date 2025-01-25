@@ -360,6 +360,12 @@ draw_triangle_filled_interpolation(stack_arena *a, xcr_context *ctx, xcr_triangl
 	}
 }
 
+static bool
+point_inside_triangle(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
+{
+	return x * A + y * B + C > 0;
+}
+
 xcr_context *
 xcr_create(linear_arena *arena, xc_framebuffer *fb)
 {
@@ -463,6 +469,83 @@ xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r,
 
 			for (int32_t x = xstart; x <= xend; ++x) {
 				xcr_put_pixel(ctx, x, y, colour);
+			}
+		}
+	}
+}
+
+void
+xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
+{
+	/* FIXME: this function is really toxic and is not optimal */
+	// int32_t const simd_width = get_simd_width();
+
+	if (T->vertices[1].y < T->vertices[0].y) {
+		XC_SWAP(xc_vec2i, T->vertices[0], T->vertices[1]);
+	}
+
+	if (T->vertices[2].y < T->vertices[0].y) {
+		XC_SWAP(xc_vec2i, T->vertices[2], T->vertices[0]);
+	}
+
+	if (T->vertices[2].y < T->vertices[1].y) {
+		XC_SWAP(xc_vec2i, T->vertices[2], T->vertices[1]);
+	}
+
+	/* grab bounding box */
+	int32_t xmin = XC_MIN3(T->vertices[0].x, T->vertices[1].x, T->vertices[2].x);
+	int32_t ymin = XC_MIN3(T->vertices[0].y, T->vertices[1].y, T->vertices[2].y);
+	int32_t xmax = XC_MAX3(T->vertices[0].x, T->vertices[1].x, T->vertices[2].x);
+	int32_t ymax = XC_MAX3(T->vertices[0].y, T->vertices[1].y, T->vertices[2].y);
+
+	/* bounds checking */
+	xmin = XC_MAX(0, xmin);
+	ymin = XC_MAX(0, ymin);
+	xmax = XC_MIN(xmax, ctx->fb->width - 1);
+	ymax = XC_MIN(ymax, ctx->fb->height - 1);
+
+	/* edge functions, if I forgot about this check resources, the formula is derived from the determinant
+	 or cross product. these parts are constants, so I can precompute them */
+	int32_t const A01 = T->vertices[0].y - T->vertices[1].y;
+	int32_t const B01 = T->vertices[1].x - T->vertices[0].x;
+	int32_t const C01 = T->vertices[0].x * T->vertices[1].y - T->vertices[0].y * T->vertices[1].x;
+
+	int32_t const A12 = T->vertices[1].y - T->vertices[2].y;
+	int32_t const B12 = T->vertices[2].x - T->vertices[1].x;
+	int32_t const C12 = T->vertices[1].x * T->vertices[2].y - T->vertices[1].y * T->vertices[2].x;
+
+	int32_t const A20 = T->vertices[2].y - T->vertices[0].y;
+	int32_t const B20 = T->vertices[0].x - T->vertices[2].x;
+	int32_t const C20 = T->vertices[2].x * T->vertices[0].y - T->vertices[2].y * T->vertices[0].x;
+
+	/* total area of the triangle */
+	f32_t const area = (f32_t)(A01 * T->vertices[2].x + B01 * T->vertices[2].y + C01) / 2.0f;
+
+	/* scanlines */
+	for (int32_t y = ymin; y <= ymax; ++y) {
+		for (int32_t x = xmin; x <= xmax; ++x) {
+			if (point_inside_triangle(x, y, A01, B01, C01) && point_inside_triangle(x, y, A12, B12, C12) &&
+			    point_inside_triangle(x, y, A20, B20, C20)) {
+				/* barycentric coordinates, most vexed code ever */
+				f32_t const alpha = ((f32_t)(A12 * x) + (f32_t)(B12 * y) + (f32_t)C12) / (2.0f * area);
+				f32_t const beta = ((f32_t)(A20 * x) + (f32_t)(B20 * y) + (f32_t)C20) / (2.0f * area);
+				f32_t const gamma = ((f32_t)(A01 * x) + (f32_t)(B01 * y) + (f32_t)C01) / (2.0f * area);
+
+				xc_colour c0 = T->colours[0];
+				xc_colour c1 = T->colours[1];
+				xc_colour c2 = T->colours[2];
+
+				uint8_t r = (uint8_t)((c0.r * alpha) + (c1.r * beta) + (c2.r * gamma));
+				uint8_t g = (uint8_t)((c0.g * alpha) + (c1.g * beta) + (c2.g * gamma));
+				uint8_t b = (uint8_t)((c0.b * alpha) + (c1.b * beta) + (c2.b * gamma));
+				uint8_t a = c0.a;
+
+				/* FIXME: alpha is not supported very well */
+				uint32_t interpolated_colour = ((uint32_t)(r) << 24) |
+							       ((uint32_t)(g) << 16) |
+							       ((uint32_t)(b) << 8)  | (uint32_t)a;
+
+				xcr_put_pixel(ctx, x, y, interpolated_colour);
 			}
 		}
 	}

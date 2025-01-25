@@ -15,9 +15,9 @@ game_update(__attribute__((unused)) xc_ctx *ctx)
 XC_API void
 game_render(xc_ctx *ctx, stack_arena *a)
 {
-	uint32_t line_colour = xc_preset_colour(XC_BLACK);
+	uint32_t line_colour = xc_preset_colour(XC_RED);
 
-	xcr_set_bg_colour(ctx->renderer_ctx, xc_preset_colour(XC_BLUE));
+	xcr_set_bg_colour(ctx->renderer_ctx, xc_preset_colour(XC_OLIVE));
 
 	/* L */
 	xcr_draw_line(ctx->renderer_ctx, (xc_vec2i){ .x = 50, .y = 100 }, (xc_vec2i){ .x = 50, .y = 400 }, line_colour);
@@ -61,10 +61,9 @@ game_render(xc_ctx *ctx, stack_arena *a)
 
 	xcr_draw_quad_filled(ctx->renderer_ctx, (xc_vec2i){ .x = 900, .y = 150 }, 50, 50, xc_preset_colour(XC_WHITE));
 
-	xcr_draw_triangle_filled(
-		ctx->renderer_ctx, a,
-		(xcr_triangle){ { { .x = 0, .y = 0 }, { .x = 256, .y = 0 }, { .x = 128, .y = 128 } } },
-		xc_preset_colour(XC_PURPLE));
+	xcr_draw_triangle_filled(ctx->renderer_ctx, a,
+				 (xcr_triangle){ { { .x = 0, .y = 0 }, { .x = 256, .y = 0 }, { .x = 128, .y = 128 } } },
+				 xc_preset_colour(XC_PURPLE));
 
 	xcr_draw_triangle_filled(
 		ctx->renderer_ctx, a,
@@ -72,4 +71,11 @@ game_render(xc_ctx *ctx, stack_arena *a)
 		xc_preset_colour(XC_WHITE));
 
 	xcr_draw_circle_filled(ctx->renderer_ctx, (xc_vec2i){ .x = 750, .y = 350 }, 50, xc_preset_colour(XC_PURPLE));
+
+	xcr_triangle_colours test = {
+		.vertices = { { 500, 700 }, { 1024, 700 }, { 672, 500 } },
+		.colours = { { 0xFF, 0x0, 0x0, 0xFF }, { 0x00, 0xFF, 0x0, 0xFF }, { 0x00, 0x0, 0xFF, 0xFF } }
+	};
+
+	xcr_draw_triangle_filled_colours(ctx->renderer_ctx, &test);
 }

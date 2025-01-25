@@ -15,6 +15,7 @@ typedef enum xc_colour_preset {
 	XC_GREEN,
 	XC_BLUE,
 	XC_PURPLE,
+	XC_OLIVE,
 
 	XC_COUNT
 } xc_colour_preset;

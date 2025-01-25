@@ -7,6 +7,7 @@ xc_colour const preset_colours[] = {
 	[XC_GREEN] = { .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF },
 	[XC_BLUE] = { .r = 0x00, .g = 0x00, .b = 0xFF, .a = 0xFF },
 	[XC_PURPLE] = { .r = 0xA0, .g = 0x20, .b = 0xF0, .a = 0xFF },
+	[XC_OLIVE] = { .r = 0x80, .g = 0x80, .b = 0x00, .a = 0xFF }
 };
 
 uint32_t
