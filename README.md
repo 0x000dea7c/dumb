@@ -43,6 +43,7 @@ Game inspired by XCaliber from TempleOS.
 - https://youtu.be/k5wtuKWmV48
 - https://gabrielgambetta.com/computer-graphics-from-scratch/07-filled-triangles.html
 - https://fgiesen.wordpress.com/2013/02/06/the-barycentric-conspirac/
+- https://github.com/FFmpeg/asm-lessons/blob/main/lesson_01/index.md
 
 # Conventions
 
@@ -89,10 +90,9 @@ Game inspired by XCaliber from TempleOS.
 - X Create vector data types to improve readability.
 - X Improve triangle rasteriser.
 - X Add colours per vertex and interpolation
-- Stop. Write and understand everything you did about the triangle rasterisation. When writing about it, say that it's only for edu. purposes
 - Test case with triangles that share edges.
 - Change code to handle share edge case.
-- Understand everything you did until here! And write something!
+- Stop. Write and understand everything you did about the triangle rasterisation. When writing about it, say that it's only for edu. purposes
 - Clipping for all primitives.
 - Basic transformations (rotation, scaling)
 - Textures

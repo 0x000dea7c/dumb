@@ -12,6 +12,8 @@
 		a = SWAP_tmp;      \
 	} while (0)
 
+#define XC_POPCNT __builtin_popcount
+
 #define f32_t float
 #define f64_t double
 

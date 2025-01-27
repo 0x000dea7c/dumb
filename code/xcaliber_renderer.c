@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+typedef uint8_t pixel_mask;
+
 static inline int32_t
 get_simd_width(void)
 {
@@ -360,10 +362,134 @@ draw_triangle_filled_interpolation(stack_arena *a, xcr_context *ctx, xcr_triangl
 	}
 }
 
-static bool
-point_inside_triangle(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
+static pixel_mask
+test_edge_simd(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
 {
-	return x * A + y * B + C > 0;
+	pixel_mask result;
+
+#if defined(__AVX2__)
+	__asm__ volatile(
+		/* load x into xmm0 */
+		"vmovd %[x], %%xmm0\n\t"
+		/* broadcast x to all 8 lanes, ymm0: [x, x, x, x ... x] */
+		"vpbroadcastd %%xmm0, %%ymm0\n\t"
+		/* create increment vector [0,1,2,3,4,5,6,7] */
+		"vpcmpeqd %%ymm1, %%ymm1, %%ymm1\n\t"
+		/* now ymm1 has [1,1,1,1,1,1,1,1] */
+		"vpsrld $31, %%ymm1, %%ymm1\n\t"
+		/* shift each lane by its position */
+		"vpsllvd %%ymm1, %%ymm1, %%ymm1\n\t"
+		/* add increments to x to get [x, x + 1, x + 2, ... x + 7] */
+		"vpaddd %%ymm1, %%ymm0, %%ymm0\n\t"
+
+		/* multiply by A, store A in xmm1 first */
+		"vmovd %[A], %%xmm1\n\t"
+		/* broadcast A, ymm1 = [A, A, A, ... A] */
+		"vpbroadcastd %%xmm1, %%ymm1\n\t"
+		/* do A * x */
+		"vpmulld %%ymm0, %%ymm1, %%ymm0\n\t"
+
+		/* add B * y */
+		"movl %[y], %%eax\n\t"
+		/* Multiplies eax by B, result in eax */
+		"imull %[B]\n\t"
+		"vmovd %%eax, %%xmm1\n\t"
+		"vpbroadcastd %%xmm1, %%ymm1\n\t"
+		"vpaddd %%ymm1, %%ymm0, %%ymm0\n\t"
+
+		/* add C */
+		"vmovd %[C], %%xmm1\n\t"
+		"vpbroadcastd %%xmm1, %%ymm1\n\t"
+		"vpaddd %%ymm1, %%ymm0, %%ymm0\n\t"
+
+		/* compare with zero to see which points are inside */
+
+		/* zero register */
+		"vpxor %%ymm1, %%ymm1, %%ymm1\n\t"
+		/* is result > 0? */
+		"vpcmpgtd %%ymm1, %%ymm0, %%ymm0\n\t"
+
+		/* extract mask of results */
+		"vpmovmskb %%ymm0, %%eax\n\t"
+		"movb %%al, %[result]\n\t"
+
+		/* = means that this is an output, and r tells the compiler to put this in any GPR */
+		: [result] "=r"(result)
+		: [x] "r"(x), [y] "r"(y), [A] "r"(A), [B] "r"(B), [C] "r"(C)
+		: "eax", "ymm0", "ymm1", "memory");
+
+#elif defined(__SSE4_2__)
+	__asm__ volatile(
+		""
+		);
+
+#else
+	#error "error: at least SSE4.2 support is expected"
+#endif
+
+	return result;
+}
+
+static void
+compute_barycentric_coordinates_simd(int32_t A, int32_t B, int32_t C, f32_t area, int32_t x, int32_t y, f32_t *arr)
+{
+	/*
+	f32_t const alpha = ((f32_t)(A12 * x) + (f32_t)(B12 * y) + (f32_t)C12) / (2.0f * area);
+	f32_t const beta = ((f32_t)(A20 * x) + (f32_t)(B20 * y) + (f32_t)C20) / (2.0f * area);
+	f32_t const gamma = ((f32_t)(A01 * x) + (f32_t)(B01 * y) + (f32_t)C01) / (2.0f * area);
+	*/
+	f32_t const y_flt = (f32_t)B * (f32_t)y;
+	f32_t const c_flt = (f32_t)C;
+	f32_t const denom = 2.0f * area;
+
+#if defined(__AVX2__)
+	__asm__ volatile(
+		/* load x into xmm0 */
+		"vmovd %[x], %%xmm0\n\t"
+		/* broadcast x to all 8 lanes, ymm0: [x, x, x, x ... x] */
+		"vpbroadcastd %%xmm0, %%ymm0\n\t"
+		/* create increment vector [0,1,2,3,4,5,6,7] */
+		"vpcmpeqd %%ymm1, %%ymm1, %%ymm1\n\t"
+		/* now ymm1 has [1,1,1,1,1,1,1,1] */
+		"vpsrld $31, %%ymm1, %%ymm1\n\t"
+		/* shift each lane by its position */
+		"vpsllvd %%ymm1, %%ymm1, %%ymm1\n\t"
+		/* add increments to x to get [x, x + 1, x + 2, ... x + 7] */
+		"vpaddd %%ymm1, %%ymm0, %%ymm0\n\t"
+
+		/* multiply by A, store A in xmm1 first */
+		"vmovd %[A], %%xmm1\n\t"
+		/* broadcast A, ymm1 = [A, A, A, ... A] */
+		"vpbroadcastd %%xmm1, %%ymm1\n\t"
+		/* do A * x */
+		"vpmulld %%ymm0, %%ymm1, %%ymm0\n\t"
+
+		/* now I will be dealing with floating points, so convert */
+		"vcvtdq2ps %%ymm0, %%ymm0"
+
+		/* load and add y_flt to each lane */
+		"vmovaps %[y_flt], %%xmm1\n\t"
+		"vbroadcastss %%xmm1, %%ymm1\n\t"
+		"vmulps %%ymm0, %%ymm1, %%ymm0\n\t"
+
+		/* load and add c_flt to each lane */
+		"vmovaps %[c_flt], %%xmm1\n\t"
+		"vbroadcastss %%xmm1, %%ymm1\n\t"
+		"vmulps %%ymm0, %%ymm1, %%ymm0\n\t"
+
+		/* now divide each lane by denom */
+		"vmovaps %[denom], %%xmm1\n\t"
+		"vbroadcastss %%xmm1, %%ymm1\n\t"
+		"vdivps %%ymm0, %%ymm1, %%ymm0\n\t"
+		/* store result in arr */
+		"vmovups %%ymm0, %[result]\n\t"
+		: [result] "=m" (*arr)
+		: [x] "r"(x), [A] "r"(A), [y_flt] "r"(y_flt), [c_flt] "r"(c_flt), [denom] "r"(denom)
+		: "ymm0", "ymm1", "memory"
+		);
+#elif defined(__SSE4_2__)
+
+#endif
 }
 
 xcr_context *
@@ -477,8 +603,17 @@ xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r,
 void
 xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
 {
-	/* FIXME: this function is really toxic and is not optimal */
-	// int32_t const simd_width = get_simd_width();
+	int32_t const simd_width = get_simd_width();
+
+#if defined(__AVX2__)
+	f32_t alphas[8];
+	f32_t betas[8];
+	f32_t gammas[8];
+#elif defined(__SSE4_2__)
+	f32_t alphas[4];
+	f32_t betas[4];
+	f32_t gammas[4];
+#endif
 
 	if (T->vertices[1].y < T->vertices[0].y) {
 		XC_SWAP(xc_vec2i, T->vertices[0], T->vertices[1]);
@@ -523,10 +658,37 @@ xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
 
 	/* scanlines */
 	for (int32_t y = ymin; y <= ymax; ++y) {
+
+		for (int32_t x = xmin; x <= xmax; x += simd_width) {
+			/* test this chunk of pixels, all at the same time */
+			pixel_mask const test01 = test_edge_simd(x, y, A01, B01, C01);
+			pixel_mask const test12 = test_edge_simd(x, y, A12, B12, C12);
+			pixel_mask const test20 = test_edge_simd(x, y, A20, B20, C20);
+
+			/* combine the tests into a single mask */
+			pixel_mask pixels_inside_triangle = 0xFF;
+			pixels_inside_triangle &= test01;
+			pixels_inside_triangle &= test12;
+			pixels_inside_triangle &= test20;
+
+			/* if any pixel is inside the triangle */
+			if (XC_POPCNT(pixels_inside_triangle) > 0) {
+				/* barycentric coordinates */
+				compute_barycentric_coordinates_simd(A12, B12, C12, area, x, y, alphas);
+				compute_barycentric_coordinates_simd(A20, B20, C20, area, x, y, betas);
+				compute_barycentric_coordinates_simd(A01, B01, C01, area, x, y, gammas);
+
+				/* construct colour here... */
+
+				/* draw here... */
+			}
+		}
+
+		/*
 		for (int32_t x = xmin; x <= xmax; ++x) {
-			if (point_inside_triangle(x, y, A01, B01, C01) && point_inside_triangle(x, y, A12, B12, C12) &&
+			if (point_inside_triangle(x, y, A01, B01, C01) &&
+			    point_inside_triangle(x, y, A12, B12, C12) &&
 			    point_inside_triangle(x, y, A20, B20, C20)) {
-				/* barycentric coordinates, most vexed code ever */
 				f32_t const alpha = ((f32_t)(A12 * x) + (f32_t)(B12 * y) + (f32_t)C12) / (2.0f * area);
 				f32_t const beta = ((f32_t)(A20 * x) + (f32_t)(B20 * y) + (f32_t)C20) / (2.0f * area);
 				f32_t const gamma = ((f32_t)(A01 * x) + (f32_t)(B01 * y) + (f32_t)C01) / (2.0f * area);
@@ -538,9 +700,8 @@ xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
 				uint8_t r = (uint8_t)((c0.r * alpha) + (c1.r * beta) + (c2.r * gamma));
 				uint8_t g = (uint8_t)((c0.g * alpha) + (c1.g * beta) + (c2.g * gamma));
 				uint8_t b = (uint8_t)((c0.b * alpha) + (c1.b * beta) + (c2.b * gamma));
-				uint8_t a = c0.a;
+				uint8_t a = (uint8_t)((c0.a * alpha) + (c1.a * beta) + (c2.a * gamma));
 
-				/* FIXME: alpha is not supported very well */
 				uint32_t interpolated_colour = ((uint32_t)(r) << 24) |
 							       ((uint32_t)(g) << 16) |
 							       ((uint32_t)(b) << 8)  | (uint32_t)a;
@@ -548,5 +709,6 @@ xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
 				xcr_put_pixel(ctx, x, y, interpolated_colour);
 			}
 		}
+		*/
 	}
 }
