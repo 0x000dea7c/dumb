@@ -67,7 +67,7 @@ get_simd_width(void)
         /* Loop if counter not zero */ \
         "jnz 1b\n\t" \
         : /* No outputs */ \
-        : "m"(colour), /* %0: colour to broadcast */ \
+        : "m"(colour), /* %0: colour to broadcast */	\
           "r"(dst),    /* %1: destination buffer */ \
           "r"(count)   /* %2: number of chunks */ \
         : "ymm0", "eax", "rcx", "memory" \
@@ -365,6 +365,7 @@ draw_triangle_filled_interpolation(stack_arena *a, xcr_context *ctx, xcr_triangl
 static pixel_mask
 test_edge_simd(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
 {
+	/* NOTE: it's a shame that I'm losing the multiplications of pixels * A, because they are needed later */
 	pixel_mask result;
 
 #if defined(__AVX2__)
@@ -391,7 +392,7 @@ test_edge_simd(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
 
 		/* add B * y */
 		"movl %[y], %%eax\n\t"
-		/* Multiplies eax by B, result in eax */
+		/* multiplies eax by B, result in eax */
 		"imull %[B]\n\t"
 		"vmovd %%eax, %%xmm1\n\t"
 		"vpbroadcastd %%xmm1, %%ymm1\n\t"
@@ -419,9 +420,7 @@ test_edge_simd(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
 		: "eax", "ymm0", "ymm1", "memory");
 
 #elif defined(__SSE4_2__)
-	__asm__ volatile(
-		""
-		);
+	#error "not implemented yet"
 
 #else
 	#error "error: at least SSE4.2 support is expected"
@@ -433,11 +432,9 @@ test_edge_simd(int32_t x, int32_t y, int32_t A, int32_t B, int32_t C)
 static void
 compute_barycentric_coordinates_simd(int32_t A, int32_t B, int32_t C, f32_t area, int32_t x, int32_t y, f32_t *arr)
 {
-	/*
-	f32_t const alpha = ((f32_t)(A12 * x) + (f32_t)(B12 * y) + (f32_t)C12) / (2.0f * area);
-	f32_t const beta = ((f32_t)(A20 * x) + (f32_t)(B20 * y) + (f32_t)C20) / (2.0f * area);
-	f32_t const gamma = ((f32_t)(A01 * x) + (f32_t)(B01 * y) + (f32_t)C01) / (2.0f * area);
-	*/
+	/* NOTE: "rm" -> integer value, "m" floating point value*/
+	/* NOTE 2: vmulps %%ymm1, %%ymm0, %%ymm0, source1, source2, destination, take the value of ymm1, multiply it with ymm0, store in ymm0 */
+	/* NOTE 3: I already know this, but in case I forget: double %% is needed for GCC specific reasons (operand templates conflict) */
 	f32_t const y_flt = (f32_t)B * (f32_t)y;
 	f32_t const c_flt = (f32_t)C;
 	f32_t const denom = 2.0f * area;
@@ -465,30 +462,29 @@ compute_barycentric_coordinates_simd(int32_t A, int32_t B, int32_t C, f32_t area
 		"vpmulld %%ymm0, %%ymm1, %%ymm0\n\t"
 
 		/* now I will be dealing with floating points, so convert */
-		"vcvtdq2ps %%ymm0, %%ymm0"
+		"vcvtdq2ps %%ymm0, %%ymm0\n\t"
 
 		/* load and add y_flt to each lane */
-		"vmovaps %[y_flt], %%xmm1\n\t"
-		"vbroadcastss %%xmm1, %%ymm1\n\t"
-		"vmulps %%ymm0, %%ymm1, %%ymm0\n\t"
+		"vbroadcastss %[y_flt], %%ymm1\n\t"
+		"vaddps %%ymm1, %%ymm0, %%ymm0\n\t"
 
 		/* load and add c_flt to each lane */
-		"vmovaps %[c_flt], %%xmm1\n\t"
-		"vbroadcastss %%xmm1, %%ymm1\n\t"
-		"vmulps %%ymm0, %%ymm1, %%ymm0\n\t"
+		"vbroadcastss %[c_flt], %%ymm1\n\t"
+		"vaddps %%ymm1, %%ymm0, %%ymm0\n\t"
 
 		/* now divide each lane by denom */
-		"vmovaps %[denom], %%xmm1\n\t"
-		"vbroadcastss %%xmm1, %%ymm1\n\t"
-		"vdivps %%ymm0, %%ymm1, %%ymm0\n\t"
+		"vbroadcastss %[denom], %%ymm1\n\t"
+		"vdivps %%ymm1, %%ymm0, %%ymm0\n\t"
+
 		/* store result in arr */
 		"vmovups %%ymm0, %[result]\n\t"
+
 		: [result] "=m" (*arr)
-		: [x] "r"(x), [A] "r"(A), [y_flt] "r"(y_flt), [c_flt] "r"(c_flt), [denom] "r"(denom)
+		: [x] "rm"(x), [A] "rm"(A), [y_flt] "m"(y_flt), [c_flt] "m"(c_flt), [denom] "m"(denom)
 		: "ymm0", "ymm1", "memory"
 		);
 #elif defined(__SSE4_2__)
-
+	#error "not implemented yet"
 #endif
 }
 
@@ -603,112 +599,51 @@ xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r,
 void
 xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
 {
-	int32_t const simd_width = get_simd_width();
-
-#if defined(__AVX2__)
-	f32_t alphas[8];
-	f32_t betas[8];
-	f32_t gammas[8];
-#elif defined(__SSE4_2__)
-	f32_t alphas[4];
-	f32_t betas[4];
-	f32_t gammas[4];
-#endif
-
+	/* sort triangles so that v0 is on top and v0 < v1 < v2 */
 	if (T->vertices[1].y < T->vertices[0].y) {
 		XC_SWAP(xc_vec2i, T->vertices[0], T->vertices[1]);
+		XC_SWAP(xc_colour, T->colours[0], T->colours[1]);
 	}
 
 	if (T->vertices[2].y < T->vertices[0].y) {
 		XC_SWAP(xc_vec2i, T->vertices[2], T->vertices[0]);
+		XC_SWAP(xc_colour, T->colours[2], T->colours[0]);
 	}
 
 	if (T->vertices[2].y < T->vertices[1].y) {
 		XC_SWAP(xc_vec2i, T->vertices[2], T->vertices[1]);
+		XC_SWAP(xc_colour, T->colours[2], T->colours[1]);
 	}
 
-	/* grab bounding box */
-	int32_t xmin = XC_MIN3(T->vertices[0].x, T->vertices[1].x, T->vertices[2].x);
-	int32_t ymin = XC_MIN3(T->vertices[0].y, T->vertices[1].y, T->vertices[2].y);
-	int32_t xmax = XC_MAX3(T->vertices[0].x, T->vertices[1].x, T->vertices[2].x);
-	int32_t ymax = XC_MAX3(T->vertices[0].y, T->vertices[1].y, T->vertices[2].y);
+	/* grab triangle bounding box, doing bounds checking too */
+	int32_t const xmin = XC_MAX(XC_MIN3(T->vertices[0].x, T->vertices[1].x, T->vertices[2].x), 0);
+	int32_t const ymin = XC_MAX(XC_MIN3(T->vertices[0].y, T->vertices[1].y, T->vertices[2].y), 0);
+	int32_t const xmax = XC_MIN(XC_MAX3(T->vertices[0].x, T->vertices[1].x, T->vertices[2].x), ctx->fb->width - 1);
+	int32_t const ymax = XC_MIN(XC_MAX3(T->vertices[0].y, T->vertices[1].y, T->vertices[2].y), ctx->fb->height - 1);
 
-	/* bounds checking */
-	xmin = XC_MAX(0, xmin);
-	ymin = XC_MAX(0, ymin);
-	xmax = XC_MIN(xmax, ctx->fb->width - 1);
-	ymax = XC_MIN(ymax, ctx->fb->height - 1);
+	f32_t u, v, w;
 
-	/* edge functions, if I forgot about this check resources, the formula is derived from the determinant
-	 or cross product. these parts are constants, so I can precompute them */
-	int32_t const A01 = T->vertices[0].y - T->vertices[1].y;
-	int32_t const B01 = T->vertices[1].x - T->vertices[0].x;
-	int32_t const C01 = T->vertices[0].x * T->vertices[1].y - T->vertices[0].y * T->vertices[1].x;
-
-	int32_t const A12 = T->vertices[1].y - T->vertices[2].y;
-	int32_t const B12 = T->vertices[2].x - T->vertices[1].x;
-	int32_t const C12 = T->vertices[1].x * T->vertices[2].y - T->vertices[1].y * T->vertices[2].x;
-
-	int32_t const A20 = T->vertices[2].y - T->vertices[0].y;
-	int32_t const B20 = T->vertices[0].x - T->vertices[2].x;
-	int32_t const C20 = T->vertices[2].x * T->vertices[0].y - T->vertices[2].y * T->vertices[0].x;
-
-	/* total area of the triangle */
-	f32_t const area = (f32_t)(A01 * T->vertices[2].x + B01 * T->vertices[2].y + C01) / 2.0f;
-
-	/* scanlines */
 	for (int32_t y = ymin; y <= ymax; ++y) {
-
-		for (int32_t x = xmin; x <= xmax; x += simd_width) {
-			/* test this chunk of pixels, all at the same time */
-			pixel_mask const test01 = test_edge_simd(x, y, A01, B01, C01);
-			pixel_mask const test12 = test_edge_simd(x, y, A12, B12, C12);
-			pixel_mask const test20 = test_edge_simd(x, y, A20, B20, C20);
-
-			/* combine the tests into a single mask */
-			pixel_mask pixels_inside_triangle = 0xFF;
-			pixels_inside_triangle &= test01;
-			pixels_inside_triangle &= test12;
-			pixels_inside_triangle &= test20;
-
-			/* if any pixel is inside the triangle */
-			if (XC_POPCNT(pixels_inside_triangle) > 0) {
-				/* barycentric coordinates */
-				compute_barycentric_coordinates_simd(A12, B12, C12, area, x, y, alphas);
-				compute_barycentric_coordinates_simd(A20, B20, C20, area, x, y, betas);
-				compute_barycentric_coordinates_simd(A01, B01, C01, area, x, y, gammas);
-
-				/* construct colour here... */
-
-				/* draw here... */
-			}
-		}
-
-		/*
 		for (int32_t x = xmin; x <= xmax; ++x) {
-			if (point_inside_triangle(x, y, A01, B01, C01) &&
-			    point_inside_triangle(x, y, A12, B12, C12) &&
-			    point_inside_triangle(x, y, A20, B20, C20)) {
-				f32_t const alpha = ((f32_t)(A12 * x) + (f32_t)(B12 * y) + (f32_t)C12) / (2.0f * area);
-				f32_t const beta = ((f32_t)(A20 * x) + (f32_t)(B20 * y) + (f32_t)C20) / (2.0f * area);
-				f32_t const gamma = ((f32_t)(A01 * x) + (f32_t)(B01 * y) + (f32_t)C01) / (2.0f * area);
+			xc_barycentric(x, y, &u, &v, &w);
 
-				xc_colour c0 = T->colours[0];
-				xc_colour c1 = T->colours[1];
-				xc_colour c2 = T->colours[2];
-
-				uint8_t r = (uint8_t)((c0.r * alpha) + (c1.r * beta) + (c2.r * gamma));
-				uint8_t g = (uint8_t)((c0.g * alpha) + (c1.g * beta) + (c2.g * gamma));
-				uint8_t b = (uint8_t)((c0.b * alpha) + (c1.b * beta) + (c2.b * gamma));
-				uint8_t a = (uint8_t)((c0.a * alpha) + (c1.a * beta) + (c2.a * gamma));
-
-				uint32_t interpolated_colour = ((uint32_t)(r) << 24) |
-							       ((uint32_t)(g) << 16) |
-							       ((uint32_t)(b) << 8)  | (uint32_t)a;
-
-				xcr_put_pixel(ctx, x, y, interpolated_colour);
+			/* point outside the triangle, skip */
+			if (u > 1 || v > 1 || w > 1 || u < 0 || v < 0 || u < 0) {
+				continue;
 			}
+
 		}
-		*/
 	}
+
+	/* 1. scan every row */
+
+	/* 2. go through each pixel */
+
+	/* 3. call barycentric function and get coordinates */
+
+	/* 4. if coordinates > 1 or < 0, then it's outside, continue (skip) */
+
+	/* 4.1 use these coordinates as weights {u, v, w} to get the colour of this pixel */
+
+	/* 4.2 draw the pixel with such colour */
 }

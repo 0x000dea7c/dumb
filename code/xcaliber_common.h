@@ -14,6 +14,9 @@
 
 #define XC_POPCNT __builtin_popcount
 
+/* stands for count trailing zeroes */
+#define XC_CTZ(v) __builtin_ctz(v)
+
 #define f32_t float
 #define f64_t double
 

@@ -90,8 +90,10 @@ Game inspired by XCaliber from TempleOS.
 - X Create vector data types to improve readability.
 - X Improve triangle rasteriser.
 - X Add colours per vertex and interpolation
+- Optimise it with SIMD
 - Test case with triangles that share edges.
 - Change code to handle share edge case.
+- Can Heron's formula be used instead?
 - Stop. Write and understand everything you did about the triangle rasterisation. When writing about it, say that it's only for edu. purposes
 - Clipping for all primitives.
 - Basic transformations (rotation, scaling)
