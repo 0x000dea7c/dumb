@@ -15,6 +15,7 @@ typedef struct xcr_triangle {
 	xc_vec2i vertices[3];
 } xcr_triangle;
 
+/* FIXME: naming sucks */
 typedef struct xcr_triangle_colours {
 	xc_vec2i vertices[3];
 	xc_colour colours[3];

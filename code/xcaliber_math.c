@@ -1,4 +1,5 @@
 #include "xcaliber_math.h"
+#include "xcaliber_stack_arena.h"
 #include <assert.h>
 
 /* NOTE: the attribute is needed because compiling with O0 triggers a linker error... */
@@ -111,4 +112,43 @@ xc_interpolate_array(stack_arena *a, int32_t y0, int32_t x0, int32_t y1, int32_t
 	}
 
 	return x_values;
+}
+
+inline int32_t
+xc_vec2i_dot_product(xc_vec2i a, xc_vec2i b)
+{
+	return a.x * b.x + a.y * b.y;
+}
+
+void
+xc_barycentric(xc_vec2i P, xc_vec2i T[3], f32_t *u, f32_t *v, f32_t *w)
+{
+	xc_vec2i const v0 = xc_vec2i_sub(T[1], T[0]);
+	xc_vec2i const v1 = xc_vec2i_sub(T[2], T[0]);
+	xc_vec2i const v2 = xc_vec2i_sub(P, T[0]);
+
+	int64_t const d00 = xc_vec2i_dot_product(v0, v0);
+	int64_t const d01 = xc_vec2i_dot_product(v0, v1);
+	int64_t const d11 = xc_vec2i_dot_product(v1, v1);
+	int64_t const d20 = xc_vec2i_dot_product(v2, v0);
+	int64_t const d21 = xc_vec2i_dot_product(v2, v1);
+
+	int64_t const den = d00 * d11 - d01 * d01;
+
+	if (den == 0) {
+		/* degenerate triangle */
+		*u = 2.0f;
+		*w = 2.0f;
+		*v = 2.0f;
+		return;
+	}
+
+	*v = (f32_t)(d11 * d20 - d01 * d21) / (f32_t)den;
+	*w = (f32_t)(d00 * d21 - d01 * d20) / (f32_t)den;
+	*u = 1.0f - *v - *w;
+
+	f32_t total = *u + *v + *w;
+	*u = *u / total;
+	*v = *v / total;
+	*w = *w / total;
 }

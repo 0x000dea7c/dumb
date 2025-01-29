@@ -625,25 +625,21 @@ xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *T)
 
 	for (int32_t y = ymin; y <= ymax; ++y) {
 		for (int32_t x = xmin; x <= xmax; ++x) {
-			xc_barycentric(x, y, &u, &v, &w);
+			xc_barycentric((xc_vec2i){ x, y }, T->vertices, &u, &v, &w);
 
 			/* point outside the triangle, skip */
-			if (u > 1 || v > 1 || w > 1 || u < 0 || v < 0 || u < 0) {
+			if (u > 1.0f || v > 1.0f || w > 1.0f || u < 0.0f || v < 0.0f || w < 0.0f) {
 				continue;
 			}
 
+			uint8_t const r = (uint8_t)(T->colours[0].r * u + T->colours[1].r * v + T->colours[2].r * w);
+			uint8_t const g = (uint8_t)(T->colours[0].g * u + T->colours[1].g * v + T->colours[2].g * w);
+			uint8_t const b = (uint8_t)(T->colours[0].b * u + T->colours[1].b * v + T->colours[2].b * w);
+			uint8_t const a = (uint8_t)(T->colours[0].a * u + T->colours[1].a * v + T->colours[2].a * w);
+
+			uint32_t const c = (uint32_t)((r << 24) | (g << 16) | (b << 8) | a);
+
+			xcr_put_pixel(ctx, x, y, c);
 		}
 	}
-
-	/* 1. scan every row */
-
-	/* 2. go through each pixel */
-
-	/* 3. call barycentric function and get coordinates */
-
-	/* 4. if coordinates > 1 or < 0, then it's outside, continue (skip) */
-
-	/* 4.1 use these coordinates as weights {u, v, w} to get the colour of this pixel */
-
-	/* 4.2 draw the pixel with such colour */
 }
