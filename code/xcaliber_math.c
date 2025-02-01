@@ -132,7 +132,6 @@ xc_barycentric(xc_vec2i P, xc_vec2i T[3], f32_t *u, f32_t *v, f32_t *w)
 	int64_t const d11 = xc_vec2i_dot_product(v1, v1);
 	int64_t const d20 = xc_vec2i_dot_product(v2, v0);
 	int64_t const d21 = xc_vec2i_dot_product(v2, v1);
-
 	int64_t const den = d00 * d11 - d01 * d01;
 
 	if (den == 0) {
@@ -143,12 +142,13 @@ xc_barycentric(xc_vec2i P, xc_vec2i T[3], f32_t *u, f32_t *v, f32_t *w)
 		return;
 	}
 
-	*v = (f32_t)(d11 * d20 - d01 * d21) / (f32_t)den;
-	*w = (f32_t)(d00 * d21 - d01 * d20) / (f32_t)den;
+        /* UwU */
 	*u = 1.0f - *v - *w;
+	*w = (f32_t)(d00 * d21 - d01 * d20) / (f32_t)den;
+	*v = (f32_t)(d11 * d20 - d01 * d21) / (f32_t)den;
 
 	f32_t total = *u + *v + *w;
 	*u = *u / total;
-	*v = *v / total;
 	*w = *w / total;
+	*v = *v / total;
 }

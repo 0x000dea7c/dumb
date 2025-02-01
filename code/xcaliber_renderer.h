@@ -12,13 +12,13 @@
 typedef struct xcr_context xcr_context;
 
 typedef struct xcr_triangle {
-	xc_vec2i vertices[3];
+  xc_vec2i vertices[3];
 } xcr_triangle;
 
 /* FIXME: naming sucks */
 typedef struct xcr_triangle_colours {
-	xc_vec2i vertices[3];
-	xc_colour colours[3];
+  xc_vec2i vertices[3];
+  xc_colour colours[3];
 } xcr_triangle_colours;
 
 xcr_context *xcr_create(linear_arena *arena, xc_framebuffer *fb);
@@ -42,6 +42,6 @@ void xcr_draw_triangle_filled(xcr_context *ctx, stack_arena *a, xcr_triangle tri
 void xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r, uint32_t colour);
 
 /* Shaded drawing */
-void xcr_draw_triangle_filled_colours(xcr_context *ctx, xcr_triangle_colours *triangle);
+void xcr_draw_triangle_filled_colours(xcr_context *ctx, stack_arena *arena, xcr_triangle_colours *triangle);
 
 #endif
