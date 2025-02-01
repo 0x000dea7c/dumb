@@ -10,11 +10,12 @@
    functions should be visible. */
 
 #include "xcaliber.h"
-#include "xcaliber_stack_arena.h"
+
+typedef struct stack_arena stack_arena;
 
 #define XC_API __attribute__((visibility("default")))
 
-XC_API void xc_update(xc_ctx *ctx);
-XC_API void xc_render(xc_ctx *ctx, stack_arena *a);
+XC_API void xc_update(xc_ctx *);
+XC_API void xc_render(xc_ctx *, stack_arena *);
 
 #endif

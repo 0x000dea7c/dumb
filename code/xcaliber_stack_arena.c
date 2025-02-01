@@ -1,184 +1,205 @@
 #include "xcaliber_stack_arena.h"
 #include "xcaliber_common.h"
+
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-#if defined(__AVX2__)
-#define DEFAULT_ALIGNMENT (4 * sizeof(void *))
-#else
-#define DEFAULT_ALIGNMENT (2 * sizeof(void *))
-#endif
+/* AVX2 */
+#define DEFAULT_ALIGNMENT (4 * sizeof (void *))
 
-/* Stores the amount of bytes that has to be placed before the header
+/* stores the amount of bytes that has to be placed before the header
    in order to have the new allocation correctly aligned */
-typedef struct stack_alloc_header {
-	uint8_t padding;
+typedef struct stack_alloc_header
+{
+  uint8_t padding;
 } stack_alloc_header;
 
-/* Small stack allocator */
-struct stack_arena {
-	unsigned char *buf;
-	uint64_t buf_len;
-	uint64_t offset;
+/* small stack allocator */
+struct stack_arena
+{
+  unsigned char *buffer;
+  uint64_t buffer_length;
+  uint64_t offset;
 };
 
 static uint64_t
-compute_padding_with_header(uintptr_t ptr, uintptr_t align, uintptr_t header_size)
+compute_padding_with_header (uintptr_t ptr, uintptr_t align, uintptr_t header_size)
 {
-	assert(XC_IS_POWER_OF_TWO(align) && "alignment isn't a power of 2");
-	uintptr_t p = ptr, a = align, padding = 0, needed_space = (uintptr_t)header_size;
-	uintptr_t const mod = p & (a - 1); /* p % a, but faster. Assume a is a power of 2 */
+  assert (XC_IS_POWER_OF_TWO (align) && "alignment isn't a power of 2");
 
-	if (mod != 0) {
-		padding = a - mod;
-	}
+  uintptr_t p = ptr;
+  uintptr_t a = align;
+  uintptr_t padding = 0;
+  uintptr_t needed_space = (uintptr_t) header_size;
 
-	if (padding < needed_space) {
-		needed_space -= padding;
+  /* p % a, but faster. Assume a is a power of 2 */
+  uintptr_t const mod = p & (a - 1);
 
-		if ((needed_space & (a - 1)) != 0) {
-			padding += a * (1 + (needed_space / a));
-		} else {
-			padding += a * (needed_space / a);
-		}
-	}
+  if (mod != 0)
+    {
+      padding = a - mod;
+    }
 
-	return (uint64_t)padding;
+  if (padding < needed_space)
+    {
+      needed_space -= padding;
+
+      if ((needed_space & (a - 1)) != 0)
+        {
+          padding += a * (1 + (needed_space / a));
+        }
+      else
+        {
+          padding += a * (needed_space / a);
+        }
+    }
+
+  return (uint64_t) padding;
 }
 
 static void *
-stack_alloc_align(stack_arena *a, uint64_t size, uint64_t align)
+stack_alloc_align (stack_arena *arena, uint64_t size, uint64_t align)
 {
-	assert(XC_IS_POWER_OF_TWO(align) && "alignment isn't a power of 2");
-	assert(align <= 128 && "alignment cannot exceed 128!");
+  assert(XC_IS_POWER_OF_TWO (align) && "alignment isn't a power of 2");
+  assert(align <= 128 && "alignment cannot exceed 128!");
 
-	stack_alloc_header *header;
-	uintptr_t const curr_addr = (uintptr_t)a->buf + (uintptr_t)a->offset;
-	uint64_t const padding = compute_padding_with_header(curr_addr, (uintptr_t)align, sizeof(stack_alloc_header));
+  stack_alloc_header *header;
+  uintptr_t const current_address = (uintptr_t) arena->buffer + (uintptr_t) arena->offset;
+  uint64_t const padding = compute_padding_with_header (current_address,
+                                                        (uintptr_t) align,
+                                                        sizeof (stack_alloc_header));
 
-	if (a->offset + padding + size > a->buf_len) {
-		(void)fprintf(stderr, "There isn't enough space in the arena");
-		return NULL;
-	}
+  if (arena->offset + padding + size > arena->buffer_length)
+    {
+      (void) fprintf (stderr, "There isn't enough space in the arena");
+      return NULL;
+    }
 
-	/* Padding done */
-	a->offset += padding;
+  /* padding done */
+  arena->offset += padding;
 
-	/* Now header placement */
-	/* where our aligned memory will start (already considers the header) */
-	uintptr_t const next_addr = curr_addr + (uintptr_t)padding;
+  /* now header placement, where my aligned memory will start (already considers the header) */
+  uintptr_t const next_addr = current_address + (uintptr_t) padding;
 
-	/* place the header just before the aligned memory */
-	header = (stack_alloc_header *)(next_addr - sizeof(*header));
-	header->padding = (uint8_t)padding;
+  /* place the header just before the aligned memory */
+  header = (stack_alloc_header *) (next_addr - sizeof (*header));
+  header->padding = (uint8_t) padding;
 
-	a->offset += size;
+  arena->offset += size;
 
-	return memset((void *)next_addr, 0, size);
+  return memset ((void *) next_addr, 0, size);
 }
 
 stack_arena *
-stack_arena_create(void)
+stack_arena_create (void)
 {
-	return malloc(sizeof(stack_arena));
+  return malloc (sizeof (stack_arena));
 }
 
 void
-stack_arena_init(stack_arena *a, void *buf, uint64_t buf_len)
+stack_arena_init (stack_arena *arena, void *buffer, uint64_t buffer_length)
 {
-	a->buf = (unsigned char *)buf;
-	a->buf_len = buf_len;
-	a->offset = 0;
+  arena->buffer = (unsigned char *) buffer;
+  arena->buffer_length = buffer_length;
+  arena->offset = 0;
 }
 
 void *
-stack_arena_alloc(stack_arena *a, uint64_t size)
+stack_arena_alloc (stack_arena *arena, uint64_t size)
 {
-	return stack_alloc_align(a, size, DEFAULT_ALIGNMENT);
+  return stack_alloc_align (arena, size, DEFAULT_ALIGNMENT);
 }
 
 void
-stack_arena_free(stack_arena *a, void *ptr)
+stack_arena_free (stack_arena *arena, void *ptr)
 {
-	/* This doesn't actually enforce the LIFO principle, but whatever */
-	if (!ptr) {
-		return;
-	}
+  /* This doesn't actually enforce the LIFO principle, but whatever */
+  if (!ptr)
+    {
+      return;
+    }
 
-	stack_alloc_header const *header;
-	uintptr_t const start = (uintptr_t)a->buf;
-	uintptr_t const end = start + (uintptr_t)a->buf_len;
-	uintptr_t const curr = (uintptr_t)ptr;
+  stack_alloc_header const *header;
+  uintptr_t const start = (uintptr_t) arena->buffer;
+  uintptr_t const end = start + (uintptr_t) arena->buffer_length;
+  uintptr_t const current = (uintptr_t) ptr;
 
-	if (!(start <= curr && end > curr)) {
-		assert(false && "This pointer doesn't belong to this arena!");
-		return;
-	}
+  if (!(start <= current && end > current))
+    {
+      assert(false && "This pointer doesn't belong to this arena!");
+      return;
+    }
 
-	if (curr >= start + (uintptr_t)a->offset) {
-		/* This is to say that I'm passing a pointer that was already freed, so I don't do anything. */
-		return;
-	}
+  if (current >= start + (uintptr_t) arena->offset)
+    {
+      /* this is to say that I'm passing a pointer that was already freed, so I don't do anything. */
+      return;
+    }
 
-	header = (stack_alloc_header *)(curr - sizeof(*header));
-	uint64_t prev_offset = (uint64_t)(curr - header->padding - start);
-	a->offset = prev_offset;
+  header = (stack_alloc_header *) (current - sizeof (*header));
+  uint64_t prev_offset = (uint64_t) (current - header->padding - start);
+  arena->offset = prev_offset;
 }
 
 static void *
-arena_resize_align(stack_arena *a, void *ptr, uint64_t old_size, uint64_t new_size, uint64_t align)
+arena_resize_align (stack_arena *arena, void *ptr, uint64_t old_size, uint64_t new_size, uint64_t align)
 {
-	if (ptr == NULL) {
-		return stack_alloc_align(a, new_size, align);
-	}
+  if (!ptr)
+    {
+      return stack_alloc_align(arena, new_size, align);
+    }
 
-	if (new_size == 0) {
-		stack_arena_free(a, ptr);
-		return NULL;
-	}
+  if (new_size == 0)
+    {
+      stack_arena_free(arena, ptr);
+      return NULL;
+    }
 
-	uint64_t const min_size = new_size < old_size ? new_size : old_size;
-	uintptr_t const start = (uintptr_t)a->buf;
-	uintptr_t const end = start + a->buf_len;
-	uintptr_t const curr = (uintptr_t)ptr;
+  uint64_t  const min_size = new_size < old_size ? new_size : old_size;
+  uintptr_t const start = (uintptr_t) arena->buffer;
+  uintptr_t const end = start + arena->buffer_length;
+  uintptr_t const current = (uintptr_t) ptr;
 
-	if (!(start <= curr && end > curr)) {
-		assert(false && "This pointer doesn't belong to this arena!");
-		return NULL;
-	}
+  if (!(start <= current && end > current))
+    {
+      assert(false && "This pointer doesn't belong to this arena!");
+      return NULL;
+    }
 
-	if (old_size == new_size) {
-		/* Trying to resize the old chunk of mem with the same size */
-		return ptr;
-	}
+  if (old_size == new_size)
+    {
+      /* Trying to resize the old chunk of mem with the same size */
+      return ptr;
+    }
 
-	if (curr >= start + (uintptr_t)a->offset) {
-		/* This is to say that I'm passing a pointer that was already freed, so I don't do anything. */
-		return NULL;
-	}
+  if (current >= start + (uintptr_t) arena->offset)
+    {
+      /* This is to say that I'm passing a pointer that was already freed, so I don't do anything. */
+      return NULL;
+    }
 
-	void *new_ptr = stack_alloc_align(a, new_size, align);
-	memmove(new_ptr, ptr, min_size);
-	return new_ptr;
+  void *new_ptr = stack_alloc_align (arena, new_size, align);
+  memmove(new_ptr, ptr, min_size);
+  return new_ptr;
 }
 
 void *
-stack_arena_resize(stack_arena *a, void *ptr, uint64_t old_size, uint64_t new_size)
+stack_arena_resize (stack_arena *arena, void *ptr, uint64_t old_size, uint64_t new_size)
 {
-	return arena_resize_align(a, ptr, old_size, new_size, DEFAULT_ALIGNMENT);
+  return arena_resize_align(arena, ptr, old_size, new_size, DEFAULT_ALIGNMENT);
 }
 
 void
-stack_arena_free_all(stack_arena *a)
+stack_arena_free_all (stack_arena *arena)
 {
-	a->offset = 0;
+  arena->offset = 0;
 }
 
 void
-stack_arena_destroy(stack_arena *a)
+stack_arena_destroy (stack_arena *arena)
 {
-	free(a);
+  free (arena);
 }

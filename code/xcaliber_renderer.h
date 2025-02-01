@@ -5,43 +5,42 @@
 
 #include "xcaliber.h"
 #include "xcaliber_colour.h"
-#include "xcaliber_linear_arena.h"
 #include "xcaliber_math.h"
+
 #include <stdint.h>
 
 typedef struct xcr_context xcr_context;
+typedef struct linear_arena linear_arena;
 
-typedef struct xcr_triangle {
+typedef struct xcr_triangle
+{
   xc_vec2i vertices[3];
 } xcr_triangle;
 
-/* FIXME: naming sucks */
-typedef struct xcr_triangle_colours {
+typedef struct xcr_shaded_triangle
+{
   xc_vec2i vertices[3];
   xc_colour colours[3];
-} xcr_triangle_colours;
+} xcr_shaded_triangle;
 
-xcr_context *xcr_create(linear_arena *arena, xc_framebuffer *fb);
+xcr_context *xcr_create (linear_arena *, xc_framebuffer *);
 
-void xcr_set_bg_colour(xcr_context *ctx, uint32_t colour);
+void xcr_set_background_colour (xcr_context *, uint32_t);
 
-void xcr_draw_line(xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour);
+void xcr_draw_line (xcr_context *, xc_vec2i, xc_vec2i, uint32_t);
 
-/* Outline drawing */
-void xcr_draw_quad_outline(xcr_context *ctx, xc_vec2i p, int32_t width, int32_t height, uint32_t colour);
+void xcr_draw_quad_outline (xcr_context *, xc_vec2i, int32_t, int32_t, uint32_t);
 
-void xcr_draw_triangle_outline(xcr_context *ctx, xcr_triangle triangle, uint32_t colour);
+void xcr_draw_triangle_outline (xcr_context *, xcr_triangle, uint32_t);
 
-void xcr_draw_circle_outline(xcr_context *ctx, xc_vec2i center, int32_t r, uint32_t colour);
+void xcr_draw_circle_outline (xcr_context *, xc_vec2i, int32_t, uint32_t);
 
-/* Filled drawing, only one colour */
-void xcr_draw_quad_filled(xcr_context *ctx, xc_vec2i p0, int32_t width, int32_t height, uint32_t colour);
+void xcr_draw_quad_filled (xcr_context *, xc_vec2i, int32_t, int32_t, uint32_t);
 
-void xcr_draw_triangle_filled(xcr_context *ctx, stack_arena *a, xcr_triangle triangle, uint32_t colour);
+void xcr_draw_triangle_filled (xcr_context *, stack_arena *, xcr_triangle, uint32_t);
 
-void xcr_draw_circle_filled(xcr_context *ctx, xc_vec2i center, int32_t r, uint32_t colour);
+void xcr_draw_circle_filled (xcr_context *, xc_vec2i, int32_t, uint32_t);
 
-/* Shaded drawing */
-void xcr_draw_triangle_filled_colours(xcr_context *ctx, stack_arena *arena, xcr_triangle_colours *triangle);
+void xcr_draw_shaded_triangle_filled (xcr_context *, stack_arena *, xcr_shaded_triangle *);
 
 #endif

@@ -2,6 +2,7 @@
 #define XCALIBER_MATH_H
 
 #include "xcaliber_common.h"
+
 #include <stdint.h>
 
 #define XC_ABS(a) ((a) >= 0 ? (a) : (-(a)))
@@ -12,31 +13,32 @@
 
 typedef struct stack_arena stack_arena;
 
-/* FIXME: I'm aligning for SIMD... 8 or 4? */
-typedef struct xc_vec2f {
-	f32_t x;
-	f32_t y;
+typedef struct xc_vec2f
+{
+  f32_t x;
+  f32_t y;
 } __attribute__((aligned(8))) xc_vec2f;
 
-typedef struct xc_vec2i {
-	int32_t x;
-	int32_t y;
+typedef struct xc_vec2i
+{
+  int32_t x;
+  int32_t y;
 } __attribute__((aligned(8))) xc_vec2i;
 
-f32_t xc_sqrt(f32_t n);
+f32_t xc_sqrt (f32_t);
 
-f32_t xc_rsqrt(f32_t n);
+f32_t xc_rsqrt (f32_t);
 
-xc_vec2i xc_vec2i_sub(xc_vec2i a, xc_vec2i b);
+xc_vec2i xc_vec2i_sub (xc_vec2i, xc_vec2i);
 
-xc_vec2i xc_vec2i_add(xc_vec2i a, xc_vec2i b);
+xc_vec2i xc_vec2i_add (xc_vec2i, xc_vec2i);
 
-int32_t xc_vec2i_cross_product(xc_vec2i a, xc_vec2i b);
+int32_t xc_vec2i_cross_product (xc_vec2i, xc_vec2i);
 
-int32_t *xc_interpolate_array(stack_arena *a, int32_t y0, int32_t x0, int32_t y1, int32_t x1, int32_t points);
+int32_t *xc_interpolate_array (stack_arena *, int32_t, int32_t, int32_t, int32_t, int32_t);
 
-int32_t xc_vec2i_dot_product(xc_vec2i a, xc_vec2i b);
+int32_t xc_vec2i_dot_product (xc_vec2i, xc_vec2i);
 
-void xc_barycentric(xc_vec2i P, xc_vec2i T[3], f32_t *u, f32_t *v, f32_t *w);
+void xc_barycentric (xc_vec2i, xc_vec2i[3], f32_t *, f32_t *, f32_t *);
 
 #endif
