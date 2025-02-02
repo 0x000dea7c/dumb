@@ -26,8 +26,8 @@ static unsigned char *game_scratch_memory = NULL;
 static linear_arena *main_arena = NULL;
 static stack_arena *scratch_arena = NULL;
 static xc_hot_reload_lib_info game_logic_shared_library;
-static xc_ctx game_context;
-static xc_cfg game_config;
+static xc_context game_context;
+static xc_config game_config;
 static xc_framebuffer game_framebuffer;
 
 static void
@@ -167,13 +167,13 @@ toggle_vsync (void)
 static void
 game_framebuffer_init (void)
 {
-  game_framebuffer.width = game_config.width;
-  game_framebuffer.height = game_config.height;
-  game_framebuffer.pitch = game_framebuffer.width * (int32_t)sizeof(game_framebuffer.width);
-  game_framebuffer.pixel_count = (uint32_t)game_framebuffer.width * (uint32_t)game_framebuffer.height;
-  game_framebuffer.byte_size = game_framebuffer.pixel_count * sizeof(uint32_t);
-  game_framebuffer.simd_chunks = (int32_t)(game_framebuffer.pixel_count / 8);
-  game_framebuffer.pixels = linear_arena_alloc(main_arena, game_framebuffer.byte_size);
+  game_framebuffer.width       = game_config.width;
+  game_framebuffer.height      = game_config.height;
+  game_framebuffer.pitch       = game_framebuffer.width * sizeof(uint32_t);
+  game_framebuffer.pixel_count = (uint32_t) game_framebuffer.width * (uint32_t) game_framebuffer.height;
+  game_framebuffer.byte_size   = game_framebuffer.pixel_count * sizeof (uint32_t);
+  game_framebuffer.simd_chunks = (int32_t) (game_framebuffer.pixel_count / 8);
+  game_framebuffer.pixels      = linear_arena_alloc (main_arena, game_framebuffer.byte_size);
   if (!game_framebuffer.pixels)
     {
       panic ("framebuffer init", "Couldn't allocate space for the framebuffer");

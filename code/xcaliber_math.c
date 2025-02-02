@@ -144,4 +144,9 @@ xc_barycentric(xc_vec2i p, xc_vec2i triangle[3], f32_t *u, f32_t *v, f32_t *w)
   *u = 1.0f - *v - *w;
   *w = (f32_t)(d00 * d21 - d01 * d20) / (f32_t)den;
   *v = (f32_t)(d11 * d20 - d01 * d21) / (f32_t)den;
+
+  f32_t total = *u + *w + *v;
+  *u /= total;
+  *w /= total;
+  *v /= total;
 }

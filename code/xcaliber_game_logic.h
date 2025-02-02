@@ -15,7 +15,7 @@ typedef struct stack_arena stack_arena;
 
 #define XC_API __attribute__((visibility("default")))
 
-XC_API void xc_update(xc_ctx *);
-XC_API void xc_render(xc_ctx *, stack_arena *);
+XC_API void xc_update(xc_context *);
+XC_API void xc_render(xc_context *, stack_arena *);
 
 #endif

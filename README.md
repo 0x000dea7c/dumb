@@ -86,16 +86,16 @@ Game inspired by XCaliber from TempleOS.
 - X Refactor, create a renderer module with a decent API.
 - X Add bound checking to framebuffer somehow.
 - X "Flood fill". More like filled primitives.
-- X Parametrise AVX2 / SSE / SSE2.
+- X Parametrise AVX2 / SSE / SSE2. Only AVX2.
 - X Create vector data types to improve readability.
 - X Improve triangle rasteriser.
 - X Add colours per vertex and interpolation
-- Optimise it with SIMD
-- Test case with triangles that share edges.
-- Change code to handle share edge case.
-- Can Heron's formula be used instead?
-- Stop. Write and understand everything you did about the triangle rasterisation. When writing about it, say that it's only for edu. purposes
+- X Optimise it with SIMD
+- X Test case with triangles that share edges.
+- X Change code to handle share edge case.
 - Clipping for all primitives.
 - Basic transformations (rotation, scaling)
+- Stop. Write and understand everything you did about the triangle rasterisation. When writing about it, say that it's only for edu. purposes
+- X Can Heron's formula be used instead?
 - Textures
 - Batch draw calls

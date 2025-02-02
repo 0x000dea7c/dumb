@@ -17,57 +17,6 @@ get_simd_width (void)
   return 8;
 }
 
-/* FIXME: change this to intrinsics */
-#define XC_FILL_PIXELS_SIMD_ALIGNED(dst, colour, count)                 \
-  __asm__ volatile(                                                     \
-                    /* Load chunk count into rax */                     \
-                    "movl %2, %%eax\n\t"                                \
-                    /* Broadcast 32-bit colour to all 8 lanes of ymm0 */ \
-                    "vpbroadcastd %0, %%ymm0\n\t"                       \
-                    /* Load destination buffer address into rcx */      \
-                    "movq %1, %%rcx\n\t"                                \
-                    /* Main loop label */                               \
-                    "1:\n\t"                                            \
-                    /* Store 8 pixels (256 bits) */                     \
-                    "vmovdqa %%ymm0, (%%rcx)\n\t"                       \
-                    /* Move to next chunk (32 bytes = 8 pixels × 4 bytes) */ \
-                    "addq $32, %%rcx\n\t"                               \
-                    /* Decrement counter */                             \
-                    "dec %%eax\n\t"                                     \
-                    /* Loop if counter not zero */                      \
-                    "jnz 1b\n\t"                                        \
-                    : /* No outputs */                                  \
-                    : "m"(colour), /* %0: colour to broadcast */        \
-                      "r"(dst),    /* %1: destination buffer */         \
-                      "r"(count)   /* %2: number of chunks */           \
-                    : "ymm0", "eax", "rcx", "memory"                    \
-                    )
-
-#define XC_FILL_PIXELS_SIMD_UNALIGNED(dst, colour, count)               \
-  __asm__ volatile(                                                     \
-                    /* Load chunk count into rax */                     \
-                    "movl %2, %%eax\n\t"                                \
-                    /* Broadcast 32-bit colour to all 8 lanes of ymm0 */ \
-                    "vpbroadcastd %0, %%ymm0\n\t"                       \
-                    /* Load destination buffer address into rcx */      \
-                    "movq %1, %%rcx\n\t"                                \
-                    /* Main loop label */                               \
-                    "1:\n\t"                                            \
-                    /* Store 8 pixels (256 bits) */                     \
-                    "vmovdqu %%ymm0, (%%rcx)\n\t"                       \
-                    /* Move to next chunk (32 bytes = 8 pixels × 4 bytes) */ \
-                    "addq $32, %%rcx\n\t"                               \
-                    /* Decrement counter */                             \
-                    "dec %%eax\n\t"                                     \
-                    /* Loop if counter not zero */                      \
-                    "jnz 1b\n\t"                                        \
-                    : /* No outputs */                                  \
-                    : "m"(colour), /* %0: colour to broadcast */	\
-                      "r"(dst),    /* %1: destination buffer */         \
-                      "r"(count)   /* %2: number of chunks */           \
-                    : "ymm0", "eax", "rcx", "memory"                    \
-                    )
-
 struct xcr_context
 {
   xc_framebuffer *fb;
@@ -77,15 +26,36 @@ static inline void
 put_pixel (xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 {
 #ifdef DEBUG
-  if (x < 0 || x > ctx->fb->width || y < 0 || y > ctx->fb->height) {
-    (void)fprintf(
-                  stderr,
-                  "WARNING: OUT OF BOUNDS FRAMEBUFFER UPDATE x: %d, y: %d\n",
-                  x, y);
-    return;
-  }
+  if (!(x >= 0 && y >= 0 && x <= ctx->fb->width && y <= ctx->fb->height))
+    {
+      assert (false && "framebuffer out of bounds!");
+    }
 #endif
   ctx->fb->pixels[y * ctx->fb->width + x] = colour;
+}
+
+static inline void
+fill_pixels_aligned_simd (uint32_t *row, uint32_t colour, int32_t chunks, int32_t simd_width)
+{
+  __m256i colour_i = _mm256_set1_epi32 ((int32_t) colour);
+
+  for (int32_t i = 0; i < chunks; ++i)
+    {
+      _mm256_store_si256 ((__m256i*) row, colour_i);
+      row += simd_width;
+    }
+}
+
+static inline void
+fill_pixels_unaligned_simd (uint32_t *row, uint32_t colour, int32_t chunks, int32_t simd_width)
+{
+  __m256i colour_i = _mm256_set1_epi32 ((int32_t)colour);
+
+  for (int32_t i = 0; i < chunks; ++i)
+    {
+      _mm256_storeu_si256 ((__m256i*) row, colour_i);
+      row += simd_width;
+    }
 }
 
 static inline void
@@ -232,17 +202,15 @@ array_append (stack_arena *arena, int32_t *array0, int32_t *array1, int32_t arra
   int32_t j = 0;
 
   array0 = stack_arena_resize (arena,
-                             array0,
-                             (uint64_t) array0_length * sizeof (int32_t),
-                             (uint64_t) (n) * sizeof (int32_t));
-  assert(array0);
+                               array0,
+                               (uint64_t) array0_length * sizeof (int32_t),
+                               (uint64_t) (n) * sizeof (int32_t));
+  assert (array0);
 
   for (int32_t i = array0_length; i < n; ++i)
     {
       array0[i] = array1[j++];
     }
-
-  stack_arena_free (arena, array1);
 
   return array0;
 }
@@ -250,7 +218,7 @@ array_append (stack_arena *arena, int32_t *array0, int32_t *array1, int32_t arra
 static void
 draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangle, uint32_t colour)
 {
-  int32_t const simd_width = get_simd_width();
+  int32_t const simd_width = get_simd_width ();
 
   /* sort vertices so that the first vertex is always at the top */
   if (triangle.vertices[1].y < triangle.vertices[0].y)
@@ -322,7 +290,7 @@ draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangl
         {
           uint32_t *row = &ctx->fb->pixels[y * ctx->fb->width + x_start];
 
-          XC_FILL_PIXELS_SIMD_UNALIGNED (row, colour, chunks);
+          fill_pixels_unaligned_simd (row, colour, chunks, simd_width);
 
           for (int32_t x = x_start + (chunks * simd_width); x <= x_end; ++x)
             {
@@ -338,171 +306,129 @@ draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangl
           put_pixel (ctx, x, y, colour);
         }
     }
+
+  stack_arena_free_all (arena);
 }
 
 static void
-draw_coloured_pixels_interpolated_simd (uint32_t *row, int32_t x_start, int32_t y, xcr_shaded_triangle *T, int32_t chunks)
+draw_coloured_pixels_interpolated_simd (uint32_t *row, int32_t x, int32_t y, xcr_shaded_triangle *triangle, int32_t chunks, int32_t simd_width)
 {
-  /* FIXME: this is all AI now, it works, but surely can be improved; at least I've got to understand it, lol */
+  /* most of this comes from that rendering book, whatever the name is, but adapted to SIMD */
 
-  // Pre-compute edge vectors - these represent the triangle's sides
-  xc_vec2i const v0 = xc_vec2i_sub (T->vertices[1], T->vertices[0]);
-  xc_vec2i const v1 = xc_vec2i_sub (T->vertices[2], T->vertices[0]);
+  /* precompute edge vectors - these represent the triangle's sides */
+  xc_vec2i const v0 = xc_vec2i_sub (triangle->vertices[1], triangle->vertices[0]);
+  xc_vec2i const v1 = xc_vec2i_sub (triangle->vertices[2], triangle->vertices[0]);
 
-  // Create increment vector [0,1,2,3,4,5,6,7] for processing 8 pixels at once
-  __m256i increment = _mm256_set_epi32(7,6,5,4,3,2,1,0);
+  /* create increment vector [0, 1, 2, 3, 4, 5, 6, 7] for processing 8 pixels at once */
+  __m256i increment = _mm256_set_epi32 (7, 6, 5, 4, 3, 2, 1, 0);
 
-  // Constants we'll need
+  /* needed for u = 1.0 - v - w */
   __m256 one = _mm256_set1_ps(1.0f);
 
-  // Convert edge vectors to float vectors for dot products
-  __m256 v0x_f = _mm256_set1_ps((f32_t)v0.x);
-  __m256 v0y_f = _mm256_set1_ps((f32_t)v0.y);
-  __m256 v1x_f = _mm256_set1_ps((f32_t)v1.x);
-  __m256 v1y_f = _mm256_set1_ps((f32_t)v1.y);
+  /* convert edge vectors to float vectors for dot products */
+  __m256 v0x_f = _mm256_set1_ps ((f32_t) v0.x);
+  __m256 v0y_f = _mm256_set1_ps ((f32_t) v0.y);
+  __m256 v1x_f = _mm256_set1_ps ((f32_t) v1.x);
+  __m256 v1y_f = _mm256_set1_ps ((f32_t) v1.y);
 
-  for (int i = 0; i < chunks; i++)
+  for (int32_t i = 0; i < chunks; ++i)
     {
-      // Setup x,y coordinates for this 8-pixel chunk
-      __m256i x_base = _mm256_set1_epi32(x_start + i * 8);
-      __m256i x_coords = _mm256_add_epi32(x_base, increment);
-      __m256i y_coords = _mm256_set1_epi32(y);
+      /* setup x, y coordinates for this 8 pixel chunk */
+      __m256i x_base   = _mm256_set1_epi32 (x + i * 8);
+      /* x + 7, x + 6, x + 5 ... */
+      __m256i x_coords = _mm256_add_epi32 (x_base, increment);
+      /* broadcast y to all lanes */
+      __m256i y_coords = _mm256_set1_epi32 (y);
 
-      // Compute v2 (point - vertex0) for all 8 pixels
-      __m256i v2x = _mm256_sub_epi32(x_coords, _mm256_set1_epi32(T->vertices[0].x));
-      __m256i v2y = _mm256_sub_epi32(y_coords, _mm256_set1_epi32(T->vertices[0].y));
+      /* compute v2 (point - vertex0) for all 8 pixels */
+      __m256i v2x = _mm256_sub_epi32 (x_coords, _mm256_set1_epi32 (triangle->vertices[0].x));
+      __m256i v2y = _mm256_sub_epi32 (y_coords, _mm256_set1_epi32 (triangle->vertices[0].y));
 
-      // Convert v2 to floats for dot products
-      __m256 v2x_f = _mm256_cvtepi32_ps(v2x);
-      __m256 v2y_f = _mm256_cvtepi32_ps(v2y);
+      /* convert v2 to floats for dot products */
+      __m256 v2x_f = _mm256_cvtepi32_ps (v2x);
+      __m256 v2y_f = _mm256_cvtepi32_ps (v2y);
 
-      // Compute all dot products needed for barycentric coordinates
-      // d00 = dot(v0, v0)
-      __m256 d00 = _mm256_add_ps(_mm256_mul_ps(v0x_f, v0x_f), _mm256_mul_ps(v0y_f, v0y_f));
+      /* compute all dot products needed for barycentric coordinates */
 
-      // d01 = dot(v0, v1)
-      __m256 d01 = _mm256_add_ps(_mm256_mul_ps(v0x_f, v1x_f), _mm256_mul_ps(v0y_f, v1y_f));
+      /* d00 = dot(v0, v0) */
+      __m256 d00 = _mm256_add_ps (_mm256_mul_ps (v0x_f, v0x_f), _mm256_mul_ps (v0y_f, v0y_f));
 
-      // d11 = dot(v1, v1)
-      __m256 d11 = _mm256_add_ps(
-                                 _mm256_mul_ps(v1x_f, v1x_f),
-                                 _mm256_mul_ps(v1y_f, v1y_f)
-                                 );
+      /* d01 = dot(v0, v1) */
+      __m256 d01 = _mm256_add_ps (_mm256_mul_ps (v0x_f, v1x_f), _mm256_mul_ps (v0y_f, v1y_f));
 
-      // d20 = dot(v2, v0)
-      __m256 d20 = _mm256_add_ps(
-                                 _mm256_mul_ps(v2x_f, v0x_f),
-                                 _mm256_mul_ps(v2y_f, v0y_f)
-                                 );
+      /* d11 = dot(v1, v1) */
+      __m256 d11 = _mm256_add_ps (_mm256_mul_ps (v1x_f, v1x_f), _mm256_mul_ps (v1y_f, v1y_f));
 
-      // d21 = dot(v2, v1)
-      __m256 d21 = _mm256_add_ps(
-                                 _mm256_mul_ps(v2x_f, v1x_f),
-                                 _mm256_mul_ps(v2y_f, v1y_f)
-                                 );
+      /* d20 = dot(v2, v0) */
+      __m256 d20 = _mm256_add_ps (_mm256_mul_ps (v2x_f, v0x_f), _mm256_mul_ps (v2y_f, v0y_f));
 
-      // Compute denominator = d00 * d11 - d01 * d01
-      __m256 denom = _mm256_sub_ps(
-                                   _mm256_mul_ps(d00, d11),
-                                   _mm256_mul_ps(d01, d01)
-                                   );
+      /* d21 = dot(v2, v1) */
+      __m256 d21 = _mm256_add_ps (_mm256_mul_ps (v2x_f, v1x_f), _mm256_mul_ps (v2y_f, v1y_f));
 
-      // Compute barycentric coordinates
-      // w = (d00 * d21 - d01 * d20) / denom
-      __m256 w = _mm256_div_ps(
-                               _mm256_sub_ps(
-                                             _mm256_mul_ps(d00, d21),
-                                             _mm256_mul_ps(d01, d20)
-                                             ),
-                               denom
-                               );
+      /* compute denominator = d00 * d11 - d01 * d01, it's guaranteed not to be zero (degenerate triangle) */
+      __m256 denom = _mm256_sub_ps (_mm256_mul_ps (d00, d11), _mm256_mul_ps (d01, d01));
 
-      // v = (d11 * d20 - d01 * d21) / denom
-      __m256 v = _mm256_div_ps(
-                               _mm256_sub_ps(
-                                             _mm256_mul_ps(d11, d20),
-                                             _mm256_mul_ps(d01, d21)
-                                             ),
-                               denom
-                               );
+      /* compute barycentric weights */
 
-      // u = 1 - v - w
-      __m256 u = _mm256_sub_ps(one, _mm256_add_ps(v, w));
+      /* w = (d00 * d21 - d01 * d20) / denom */
+      __m256 w = _mm256_div_ps (_mm256_sub_ps(_mm256_mul_ps(d00, d21), _mm256_mul_ps(d01, d20)), denom);
 
-      // Now interpolate colors for each component
-      // Convert colors to float and broadcast them
-      __m256 v0r = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[0].r));
-      __m256 v1r = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[1].r));
-      __m256 v2r = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[2].r));
+      /* v = (d11 * d20 - d01 * d21) / denom */
+      __m256 v = _mm256_div_ps (_mm256_sub_ps (_mm256_mul_ps(d11, d20), _mm256_mul_ps(d01, d21)), denom);
 
-      __m256 v0g = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[0].g));
-      __m256 v1g = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[1].g));
-      __m256 v2g = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[2].g));
+      /* u = 1 - v - w */
+      __m256 u = _mm256_sub_ps (one, _mm256_add_ps (v, w));
 
-      __m256 v0b = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[0].b));
-      __m256 v1b = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[1].b));
-      __m256 v2b = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[2].b));
+      /* colour interpolation */
+      __m256 v0r = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[0].r));
+      __m256 v1r = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[1].r));
+      __m256 v2r = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[2].r));
 
-      __m256 v0a = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[0].a));
-      __m256 v1a = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[1].a));
-      __m256 v2a = _mm256_cvtepi32_ps(_mm256_set1_epi32(T->colours[2].a));
+      __m256 v0g = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[0].g));
+      __m256 v1g = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[1].g));
+      __m256 v2g = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[2].g));
 
-      // Interpolate each color component
-      // red = u*v0r + v*v1r + w*v2r
-      __m256 red = _mm256_add_ps(
-                                 _mm256_mul_ps(u, v0r),
-                                 _mm256_add_ps(
-                                               _mm256_mul_ps(v, v1r),
-                                               _mm256_mul_ps(w, v2r)
-                                               )
-                                 );
+      __m256 v0b = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[0].b));
+      __m256 v1b = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[1].b));
+      __m256 v2b = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[2].b));
 
-      // Similar for green, blue, alpha
-      __m256 green = _mm256_add_ps(
-                                   _mm256_mul_ps(u, v0g),
-                                   _mm256_add_ps(
-                                                 _mm256_mul_ps(v, v1g),
-                                                 _mm256_mul_ps(w, v2g)
-                                                 )
-                                   );
+      __m256 v0a = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[0].a));
+      __m256 v1a = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[1].a));
+      __m256 v2a = _mm256_cvtepi32_ps (_mm256_set1_epi32 (triangle->colours[2].a));
 
-      __m256 blue = _mm256_add_ps(
-                                  _mm256_mul_ps(u, v0b),
-                                  _mm256_add_ps(
-                                                _mm256_mul_ps(v, v1b),
-                                                _mm256_mul_ps(w, v2b)
-                                                )
-                                  );
+      /* red = (u * v0r) + (v * v1r) +  (w * v2r) */
+      __m256 red = _mm256_add_ps (_mm256_mul_ps (u, v0r), _mm256_add_ps (_mm256_mul_ps(v, v1r),
+                                                                         _mm256_mul_ps(w, v2r)));
 
-      __m256 alpha = _mm256_add_ps(
-                                   _mm256_mul_ps(u, v0a),
-                                   _mm256_add_ps(
-                                                 _mm256_mul_ps(v, v1a),
-                                                 _mm256_mul_ps(w, v2a)
-                                                 )
-                                   );
+      /* likewise for green, blue, alpha */
+      __m256 green = _mm256_add_ps (_mm256_mul_ps(u, v0g), _mm256_add_ps(_mm256_mul_ps(v, v1g),
+                                                                         _mm256_mul_ps(w, v2g)));
 
-      // Convert back to integers
-      __m256i red_i = _mm256_cvtps_epi32(red);
-      __m256i green_i = _mm256_cvtps_epi32(green);
-      __m256i blue_i = _mm256_cvtps_epi32(blue);
-      __m256i alpha_i = _mm256_cvtps_epi32(alpha);
+      __m256 blue = _mm256_add_ps (_mm256_mul_ps (u, v0b), _mm256_add_ps (_mm256_mul_ps(v, v1b),
+                                                                          _mm256_mul_ps(w, v2b)));
 
-      // Pack colors into final RGBA format
-      // We need to shift components into position and combine them
-      __m256i red_shifted = _mm256_slli_epi32(red_i, 24);
-      __m256i green_shifted = _mm256_slli_epi32(green_i, 16);
-      __m256i blue_shifted = _mm256_slli_epi32(blue_i, 8);
+      __m256 alpha = _mm256_add_ps (_mm256_mul_ps(u, v0a), _mm256_add_ps (_mm256_mul_ps(v, v1a),
+                                                                          _mm256_mul_ps(w, v2a)));
 
-      // Combine all components
-      __m256i pixels = _mm256_or_si256(
-                                       _mm256_or_si256(red_shifted, green_shifted),
-                                       _mm256_or_si256(blue_shifted, alpha_i)
-                                       );
+      /* convert back to integers */
+      __m256i red_i   = _mm256_cvtps_epi32 (red);
+      __m256i green_i = _mm256_cvtps_epi32 (green);
+      __m256i blue_i  = _mm256_cvtps_epi32 (blue);
+      __m256i alpha_i = _mm256_cvtps_epi32 (alpha);
 
-      // Store final pixels
-      _mm256_storeu_si256((__m256i*)row, pixels);
-      row += 8;  // Move to next 8 pixels
+      /* pack colors into final RGBA format
+         need to shift components into position and combine them */
+      __m256i red_shifted   = _mm256_slli_epi32 (red_i, 24);
+      __m256i green_shifted = _mm256_slli_epi32 (green_i, 16);
+      __m256i blue_shifted  = _mm256_slli_epi32 (blue_i, 8);
+
+      /* combine all components (OR them) */
+      __m256i pixels = _mm256_or_si256 (_mm256_or_si256 (red_shifted, green_shifted),
+                                        _mm256_or_si256 (blue_shifted, alpha_i));
+
+      _mm256_storeu_si256 ((__m256i*) row, pixels);
+
+      row += simd_width;
     }
 }
 
@@ -510,7 +436,7 @@ static void
 draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shaded_triangle *triangle)
 {
   f32_t u, v, w;
-  int32_t const simd_width = get_simd_width();
+  int32_t const simd_width = get_simd_width ();
 
   if (triangle->vertices[1].y < triangle->vertices[0].y)
     {
@@ -534,9 +460,28 @@ draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shad
   int32_t const x12_length = triangle->vertices[2].y - triangle->vertices[1].y + 1;
   int32_t const x02_length = triangle->vertices[2].y - triangle->vertices[0].y + 1;
 
-  int32_t *x01  = xc_interpolate_array (arena, triangle->vertices[0].y, triangle->vertices[0].x, triangle->vertices[1].y, triangle->vertices[1].x, x01_length);
-  int32_t *x12  = xc_interpolate_array (arena, triangle->vertices[1].y, triangle->vertices[1].x, triangle->vertices[2].y, triangle->vertices[2].x, x12_length);
-  int32_t *x02  = xc_interpolate_array (arena, triangle->vertices[0].y, triangle->vertices[0].x, triangle->vertices[2].y, triangle->vertices[2].x, x02_length);
+  int32_t *x01  = xc_interpolate_array (arena,
+                                        triangle->vertices[0].y,
+                                        triangle->vertices[0].x,
+                                        triangle->vertices[1].y,
+                                        triangle->vertices[1].x,
+                                        x01_length);
+
+  int32_t *x12  = xc_interpolate_array (arena,
+                                        triangle->vertices[1].y,
+                                        triangle->vertices[1].x,
+                                        triangle->vertices[2].y,
+                                        triangle->vertices[2].x,
+                                        x12_length);
+
+  int32_t *x02  = xc_interpolate_array (arena,
+                                        triangle->vertices[0].y,
+                                        triangle->vertices[0].x,
+                                        triangle->vertices[2].y,
+                                        triangle->vertices[2].x,
+                                        x02_length);
+
+  /* puts everything into x01 and frees x12 */
   int32_t *x012 = array_append (arena, x01, x12, x01_length - 1, x12_length);
   int32_t const mid = (x01_length + x12_length) >> 1;
   int32_t *x_left, *x_right;
@@ -552,7 +497,7 @@ draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shad
       x_right = x02;
     }
 
-  for (int32_t y = triangle->vertices[0].y; y <= triangle->vertices[2].y; ++y)
+  for (int32_t y = triangle->vertices[0].y; y < triangle->vertices[2].y; ++y)
     {
       int32_t const x_start = x_left[y - triangle->vertices[0].y];
       int32_t const x_end = x_right[y - triangle->vertices[0].y];
@@ -563,16 +508,16 @@ draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shad
         {
           uint32_t *row = &ctx->fb->pixels[y * ctx->fb->width + x_start];
 
-          draw_coloured_pixels_interpolated_simd(row, x_start, y, triangle, chunks);
+          draw_coloured_pixels_interpolated_simd (row, x_start, y, triangle, chunks, simd_width);
 
           for (int32_t x = x_start + (chunks * simd_width); x <= x_end; ++x)
             {
-              xc_barycentric((xc_vec2i){ x, y }, triangle->vertices, &u, &v, &w);
+              xc_barycentric ((xc_vec2i){ x, y }, triangle->vertices, &u, &v, &w);
 
-              uint8_t  const r = (uint8_t)(triangle->colours[0].r * u + triangle->colours[1].r * v + triangle->colours[2].r * w);
-              uint8_t  const g = (uint8_t)(triangle->colours[0].g * u + triangle->colours[1].g * v + triangle->colours[2].g * w);
-              uint8_t  const b = (uint8_t)(triangle->colours[0].b * u + triangle->colours[1].b * v + triangle->colours[2].b * w);
-              uint8_t  const a = (uint8_t)(triangle->colours[0].a * u + triangle->colours[1].a * v + triangle->colours[2].a * w);
+              uint8_t  const r = (uint8_t) (triangle->colours[0].r * u + triangle->colours[1].r * v + triangle->colours[2].r * w);
+              uint8_t  const g = (uint8_t) (triangle->colours[0].g * u + triangle->colours[1].g * v + triangle->colours[2].g * w);
+              uint8_t  const b = (uint8_t) (triangle->colours[0].b * u + triangle->colours[1].b * v + triangle->colours[2].b * w);
+              uint8_t  const a = (uint8_t) (triangle->colours[0].a * u + triangle->colours[1].a * v + triangle->colours[2].a * w);
               uint32_t const colour = (uint32_t)((r << 24) | (g << 16) | (b << 8) | a);
 
               put_pixel (ctx, x, y, colour);
@@ -584,7 +529,7 @@ draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shad
       /* very small groups of pixels that cannot be processed using SIMD */
       for (int32_t x = x_start; x <= x_end; ++x)
         {
-          xc_barycentric((xc_vec2i){ x, y }, triangle->vertices, &u, &v, &w);
+          xc_barycentric ((xc_vec2i){ x, y }, triangle->vertices, &u, &v, &w);
 
           uint8_t  const r = (uint8_t)(triangle->colours[0].r * u + triangle->colours[1].r * v + triangle->colours[2].r * w);
           uint8_t  const g = (uint8_t)(triangle->colours[0].g * u + triangle->colours[1].g * v + triangle->colours[2].g * w);
@@ -592,9 +537,11 @@ draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shad
           uint8_t  const a = (uint8_t)(triangle->colours[0].a * u + triangle->colours[1].a * v + triangle->colours[2].a * w);
           uint32_t const colour = (uint32_t)((r << 24) | (g << 16) | (b << 8) | a);
 
-          put_pixel(ctx, x, y, colour);
+          put_pixel (ctx, x, y, colour);
         }
     }
+
+  stack_arena_free_all (arena);
 }
 
 xcr_context *
@@ -615,8 +562,8 @@ xcr_create (linear_arena *arena, xc_framebuffer *fb)
 void
 xcr_set_background_colour (xcr_context *ctx, uint32_t colour)
 {
-  uint32_t *pixels = ctx->fb->pixels;
-  XC_FILL_PIXELS_SIMD_ALIGNED(pixels, colour, ctx->fb->simd_chunks);
+  uint32_t *row = ctx->fb->pixels;
+  fill_pixels_aligned_simd (row, colour, ctx->fb->simd_chunks, get_simd_width ());
 }
 
 void

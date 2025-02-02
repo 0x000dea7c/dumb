@@ -7,8 +7,8 @@
 #include <stdbool.h>
 
 /* function pointers that act as an interface between the main program and the shared lib */
-typedef void (*update_func)(xc_ctx *);
-typedef void (*render_func)(xc_ctx *, stack_arena *);
+typedef void (*update_func)(xc_context *);
+typedef void (*render_func)(xc_context *, stack_arena *);
 
 typedef struct xc_hot_reload_lib_info
 {

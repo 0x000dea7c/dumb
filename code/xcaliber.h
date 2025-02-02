@@ -10,8 +10,8 @@
 typedef struct xcr_context xcr_context;
 
 /* XC stands for (X)-(C)aliber */
-
 /* Platform Abstraction Layer */
+
 typedef struct xc_ctx
 {
   xcr_context *renderer_ctx;
@@ -20,7 +20,7 @@ typedef struct xc_ctx
   f32_t physics_accumulator;
   f32_t alpha;
   bool running;
-} xc_ctx;
+} xc_context;
 
 typedef struct xc_cfg
 {
@@ -28,7 +28,7 @@ typedef struct xc_cfg
   int32_t width;
   int32_t height;
   bool vsync;
-} xc_cfg;
+} xc_config;
 
 typedef struct xc_framebuffer
 {
