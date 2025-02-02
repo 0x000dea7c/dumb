@@ -194,7 +194,6 @@ draw_circle_midpoint (xcr_context *ctx, xc_vec2i circle_center, int32_t radius, 
     }
 }
 
-/* puts everything into array0 and frees array1 */
 static int32_t *
 array_append (stack_arena *arena, int32_t *array0, int32_t *array1, int32_t array0_length, int32_t array1_length)
 {
@@ -481,7 +480,6 @@ draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shad
                                         triangle->vertices[2].x,
                                         x02_length);
 
-  /* puts everything into x01 and frees x12 */
   int32_t *x012 = array_append (arena, x01, x12, x01_length - 1, x12_length);
   int32_t const mid = (x01_length + x12_length) >> 1;
   int32_t *x_left, *x_right;
