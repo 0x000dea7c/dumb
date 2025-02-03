@@ -25,12 +25,13 @@ struct xcr_context
 static inline void
 put_pixel (xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 {
-#ifdef DEBUG
   if (!(x >= 0 && y >= 0 && x <= ctx->fb->width && y <= ctx->fb->height))
     {
+      return;
+#ifdef DEBUG
       assert (false && "framebuffer out of bounds!");
-    }
 #endif
+    }
   ctx->fb->pixels[y * ctx->fb->width + x] = colour;
 }
 

@@ -2,18 +2,17 @@
 
 #include "xcaliber.h"
 #include "xcaliber_renderer.h"
+#include "xcaliber_transform.h"
 
 #include <SDL3/SDL.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <math.h>
 
-XC_API void
-game_update(__attribute__((unused)) xc_context *ctx)
+static void
+demo1 (xc_context *ctx, stack_arena *arena)
 {
-}
-
-XC_API void
-game_render(xc_context *ctx, stack_arena *arena)
-{
+  /* draws a bunch of shit */
   xcr_set_background_colour (ctx->renderer_ctx, 0x00);
   int32_t x = 0;
   int32_t y = 0;
@@ -89,4 +88,73 @@ game_render(xc_context *ctx, stack_arena *arena)
   xcr_draw_quad_outline (ctx->renderer_ctx,
                          (xc_quad) { .position = { 128, 428 }, .width = 100, .height = 100 },
                          (xc_colour) { 0x00, 0x00, 0xFF, 0xFF });
+}
+
+XC_API void
+game_update(__attribute__((unused)) xc_context *ctx)
+{
+}
+
+XC_API void
+game_render(xc_context *ctx, stack_arena *arena)
+{
+  // demo1 (ctx, arena);
+
+  xcr_set_background_colour (ctx->renderer_ctx, 0x00);
+
+  xc_triangle triangle = {
+    .vertices = { { 300, 256 }, { 600, 256 }, { 450, 512 } }
+  };
+
+  static f32_t rotation_radians = 0.0f;
+
+  f32_t const centroid_x = (triangle.vertices[0].x + triangle.vertices[1].x + triangle.vertices[2].x) / 3.0f;
+  f32_t const centroid_y = (triangle.vertices[0].y + triangle.vertices[1].y + triangle.vertices[2].y) / 3.0f;
+
+  xc_transform const to_origin = {
+    .matrix = {
+      .values = {
+        1.0f, 0.0f, -centroid_x,
+        0.0f, 1.0f, -centroid_y,
+        0.0f, 0.0f, 1.0f
+      }
+    }
+  };
+
+  xc_transform const rotation_matrix = {
+    .matrix = {
+      .values = {
+        xc_cos (rotation_radians), -xc_sin (rotation_radians), 0.0f,
+        xc_sin (rotation_radians),  xc_cos (rotation_radians), 0.0f,
+        0.0f,                       0.0f,                      1.0f }
+    }
+  };
+
+  xc_transform const to_position = {
+    .matrix = { .values = { 1.0f, 0.0f, centroid_x,
+                            0.0f, 1.0f, centroid_y,
+                            0.0f, 0.0f, 1.0f } }
+  };
+
+  xct_transform_triangle (&to_origin, &triangle);
+  xct_transform_triangle (&rotation_matrix, &triangle);
+  xct_transform_triangle (&to_position, &triangle);
+
+  xcr_draw_triangle_filled (ctx->renderer_ctx, arena, triangle, xc_preset_colour (XC_GREEN));
+
+  xc_triangle triangle2 = triangle;
+  triangle2.vertices[0].x += 300;
+  triangle2.vertices[1].x += 300;
+  triangle2.vertices[2].x += 300;
+
+  xc_triangle triangle3 = triangle;
+  triangle3.vertices[0].x -= 250;
+  triangle3.vertices[1].x -= 250;
+  triangle3.vertices[2].x -= 250;
+
+  xcr_draw_triangle_filled (ctx->renderer_ctx, arena, triangle2, xc_preset_colour (XC_RED));
+
+  xcr_draw_triangle_filled (ctx->renderer_ctx, arena, triangle3, xc_preset_colour (XC_PURPLE));
+
+  rotation_radians = fmodf (rotation_radians + (ctx->fixed_timestep * 0.2f), XC_TWO_PI);
 }

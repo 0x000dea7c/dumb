@@ -4,6 +4,7 @@
 #include "xcaliber_linear_arena.h"
 #include "xcaliber_stack_arena.h"
 #include "xcaliber_renderer.h"
+#include "xcaliber_math.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -31,7 +32,13 @@ static xc_config game_config;
 static xc_framebuffer game_framebuffer;
 
 static void
-quit (void)
+game_math_init (void)
+{
+  xc_math_init ();
+}
+
+static void
+game_quit (void)
 {
   if (sdl_texture)
     {
@@ -78,13 +85,13 @@ panic (char const *title, char const *msg)
 {
   (void) fprintf (stderr, "%s - %s\n", title, msg);
 
-  quit();
+  game_quit();
 
   exit(EXIT_FAILURE);
 }
 
 static void
-sdl_init (void)
+game_sdl_init (void)
 {
   if (!SDL_Init (SDL_INIT_VIDEO))
     {
@@ -201,7 +208,7 @@ game_hot_reload_init (void)
 }
 
 void
-run (void)
+game_run (void)
 {
   uint64_t frame_count = 0;
   uint64_t last_time = SDL_GetTicks ();
@@ -300,17 +307,18 @@ run (void)
 int
 main(void)
 {
-  game_config_init();
-  sdl_init();
-  game_memory_init();
-  game_context_init();
-  game_framebuffer_init();
-  game_renderer_init();
-  game_hot_reload_init();
+  game_math_init ();
+  game_config_init ();
+  game_sdl_init();
+  game_memory_init ();
+  game_context_init ();
+  game_framebuffer_init ();
+  game_renderer_init ();
+  game_hot_reload_init ();
 
-  run();
+  game_run ();
 
-  quit();
+  game_quit ();
 
   return EXIT_SUCCESS;
 }

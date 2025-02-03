@@ -21,7 +21,8 @@ typedef enum xc_colour_preset
   XC_COUNT
 } xc_colour_preset;
 
-uint32_t xc_preset_colour (xc_colour_preset);
+/* NAMING SUCKS!! */
+xc_colour xc_preset_colour (xc_colour_preset);
 
 uint32_t xc_get_colour (xc_colour);
 

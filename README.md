@@ -97,6 +97,7 @@ Game inspired by XCaliber from TempleOS.
 - Transformations (rotation, scale, translation)
 - Abstract coordinate systems: right now I'm specifying every position with pixel values, but that's problematic. When the game world is created, I need to specify positions with floating point values. To handle physics and a myriad of other things this is also useful
 - Clipping for all primitives: once I have the camera and world coordinates, start with clipping stuff that won't be seen by the player so that I save computational power
+- Game objects need to be passed somehow to the game logic module
 - Add support for textures: textured triangles, quads or circles
 - Particle systems: some visual effects like thrusters and explosions are good; particles that fade over time, small points or quads...
 - Batch draw calls or something... I think drawing triangles individually isn't very good

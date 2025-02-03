@@ -2,6 +2,7 @@
 #define XCALIBER_GEOMETRY_H
 
 #include "xcaliber_math.h"
+#include "xcaliber_colour.h"
 
 typedef struct xc_triangle
 {

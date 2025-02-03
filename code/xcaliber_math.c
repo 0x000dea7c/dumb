@@ -2,6 +2,13 @@
 #include "xcaliber_stack_arena.h"
 
 #include <assert.h>
+#include <math.h>
+
+void
+xc_math_init (void)
+{
+
+}
 
 /* NOTE: the attribute is needed because compiling with O0 triggers a linker error... */
 /* FIXME: change to intrinsics */
@@ -128,7 +135,7 @@ xc_vec2i_dot_product (xc_vec2i a, xc_vec2i b)
 }
 
 void
-xc_barycentric(xc_vec2i p, xc_vec2i triangle[3], f32_t *u, f32_t *v, f32_t *w)
+xc_barycentric (xc_vec2i p, xc_vec2i triangle[3], f32_t *u, f32_t *v, f32_t *w)
 {
   xc_vec2i const v0 = xc_vec2i_sub(triangle[1], triangle[0]);
   xc_vec2i const v1 = xc_vec2i_sub(triangle[2], triangle[0]);
@@ -149,4 +156,16 @@ xc_barycentric(xc_vec2i p, xc_vec2i triangle[3], f32_t *u, f32_t *v, f32_t *w)
   *u /= total;
   *w /= total;
   *v /= total;
+}
+
+f32_t
+xc_sin (f32_t radians)
+{
+  return sin (radians);
+}
+
+inline f32_t
+xc_cos (f32_t radians)
+{
+  return cos (radians);
 }

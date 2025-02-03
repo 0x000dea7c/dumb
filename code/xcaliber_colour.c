@@ -11,11 +11,10 @@ xc_colour const preset_colours[] =
     [XC_OLIVE] = { .r = 0x80, .g = 0x80, .b = 0x00, .a = 0xFF }
   };
 
-inline uint32_t
+inline xc_colour
 xc_preset_colour (xc_colour_preset preset)
 {
-  xc_colour c = preset_colours[preset];
-  return (uint32_t) (c.r) << 24 | (uint32_t) (c.g) << 16 | (uint32_t) (c.b) << 8 | (uint32_t) (c.a);
+  return preset_colours[preset];
 }
 
 inline uint32_t
