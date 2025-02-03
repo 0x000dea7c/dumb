@@ -93,9 +93,14 @@ Game inspired by XCaliber from TempleOS.
 - X Optimise it with SIMD
 - X Test case with triangles that share edges.
 - X Change code to handle share edge case.
-- Clipping for all primitives.
-- Basic transformations (rotation, scaling)
-- Stop. Write and understand everything you did about the triangle rasterisation. When writing about it, say that it's only for edu. purposes
 - X Can Heron's formula be used instead?
-- Textures
+- Transformations (rotation, scale, translation)
+- Abstract coordinate systems: right now I'm specifying every position with pixel values, but that's problematic. When the game world is created, I need to specify positions with floating point values. To handle physics and a myriad of other things this is also useful
+- Clipping for all primitives: once I have the camera and world coordinates, start with clipping stuff that won't be seen by the player so that I save computational power
+- Add support for textures: textured triangles, quads or circles
+- Particle systems: some visual effects like thrusters and explosions are good; particles that fade over time, small points or quads...
 - Batch draw calls
+- Spaceship controls, shooting, projectile spawning
+- Collision detection
+- Enemy AI
+- Health system, scoring and game states
