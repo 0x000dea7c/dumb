@@ -82,25 +82,26 @@ plot_points (xcr_context *ctx, xc_vec2i circle_center, xc_vec2i p, uint32_t colo
 }
 
 static void
-draw_horizontal_line_bresenham (xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour,
-                                int32_t dx, int32_t dy, int32_t dy_abs)
+draw_horizontal_line_bresenham (xcr_context *ctx, xc_line line, xc_colour colour, int32_t dx, int32_t dy, int32_t dy_abs)
 {
-  if (p1.x < p0.x)
+  uint32_t const colour_i = xc_get_colour (colour);
+
+  if (line.end.x < line.start.x)
     {
-      XC_SWAP (int32_t, p0.x, p1.x);
-      XC_SWAP (int32_t, p0.y, p1.y);
-      dx = p1.x - p0.x;
-      dy = p1.y - p0.y;
+      XC_SWAP (int32_t, line.start.x, line.end.x);
+      XC_SWAP (int32_t, line.start.y, line.end.y);
+      dx = line.end.x - line.start.x;
+      dy = line.end.y - line.start.y;
       dy_abs = XC_ABS (dy);
     }
 
   int32_t D = 2 * dy - dx;
-  int32_t y = p0.y;
+  int32_t y = line.start.y;
   int32_t y_step = (dy < 0) ? -1 : 1;
 
-  for (int32_t x = p0.x; x <= p1.x; ++x)
+  for (int32_t x = line.start.x; x <= line.end.x; ++x)
     {
-      put_pixel (ctx, x, y, colour);
+      put_pixel (ctx, x, y, colour_i);
 
       if (D > 0)
         {
@@ -114,29 +115,31 @@ draw_horizontal_line_bresenham (xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint
 }
 
 static void
-draw_vertical_line_bresenham (xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour,
-                              int32_t dx, int32_t dy, int32_t dy_abs)
+draw_vertical_line_bresenham (xcr_context *ctx, xc_line line, xc_colour colour, int32_t dx, int32_t dy, int32_t dy_abs)
 {
-  XC_SWAP (int32_t, p0.x, p0.y);
-  XC_SWAP (int32_t, p1.x, p1.y);
+  uint32_t const colour_i = xc_get_colour (colour);
 
-  if (p1.x < p0.x)
+  XC_SWAP (int32_t, line.start.x, line.start.y);
+  XC_SWAP (int32_t, line.end.x, line.end.y);
+
+  if (line.end.x < line.start.x)
     {
-      XC_SWAP (int32_t, p0.x, p1.x);
-      XC_SWAP (int32_t, p0.y, p1.y);
+      XC_SWAP (int32_t, line.start.x, line.end.x);
+      XC_SWAP (int32_t, line.start.y, line.end.y);
     }
 
-  dx = p1.x - p0.x;
-  dy = p1.y - p0.y;
+  dx = line.end.x - line.start.x;
+  dy = line.end.y - line.start.y;
   dy_abs = XC_ABS (dy);
 
   int32_t D = 2 * dy - dx;
-  int32_t y = p0.y;
+  int32_t y = line.start.y;
   int32_t y_step = (dy < 0) ? -1 : 1;
 
-  for (int32_t x = p0.x; x <= p1.x; ++x)
+  for (int32_t x = line.start.x; x <= line.end.x; ++x)
     {
-      put_pixel (ctx, y, x, colour);
+      /* SPEED: this can be optimised with SIMD */
+      put_pixel (ctx, y, x, colour_i);
 
       if (D > 0)
         {
@@ -150,31 +153,35 @@ draw_vertical_line_bresenham (xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32
 }
 
 static void
-draw_line_bresenham (xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour)
+draw_line_bresenham (xcr_context *ctx, xc_line line, xc_colour colour)
 {
-  int32_t const dx = p1.x - p0.x;
-  int32_t const dy = p1.y - p0.y;
+  int32_t const dx = line.end.x - line.start.x;
+  int32_t const dy = line.end.y - line.start.y;
   int32_t const dy_abs = XC_ABS (dy);
   int32_t const dx_abs = XC_ABS (dx);
   bool    const steep = dy_abs > dx_abs;
 
   if (steep)
     {
-      draw_vertical_line_bresenham (ctx, p0, p1, colour, dx, dy, dy_abs);
+      draw_vertical_line_bresenham (ctx, line, colour, dx, dy, dy_abs);
       return;
     }
 
-  draw_horizontal_line_bresenham (ctx, p0, p1, colour, dx, dy, dy_abs);
+  draw_horizontal_line_bresenham (ctx, line, colour, dx, dy, dy_abs);
 }
 
 static void
-draw_circle_midpoint (xcr_context *ctx, xc_vec2i circle_center, int32_t radius, uint32_t colour)
+draw_circle_midpoint (xcr_context *ctx, xc_circle circle, xc_colour colour)
 {
-  /* start at the top! */
-  xc_vec2i current = { .x = 0, .y = radius };
-  int32_t D = 3 - (2 * radius);
+  uint32_t const colour_i = xc_get_colour (colour);
 
-  plot_points (ctx, circle_center, current, colour);
+  /* start at the top! */
+  xc_vec2i current = { .x = 0, .y = circle.radius };
+
+  /* decision variable */
+  int32_t D = 3 - (2 * circle.radius);
+
+  plot_points (ctx, circle.center, current, colour_i);
 
   while (current.y > current.x)
     {
@@ -190,7 +197,7 @@ draw_circle_midpoint (xcr_context *ctx, xc_vec2i circle_center, int32_t radius, 
         }
 
       ++current.x;
-      plot_points (ctx, circle_center, current, colour);
+      plot_points (ctx, circle.center, current, colour_i);
     }
 }
 
@@ -215,9 +222,10 @@ array_append (stack_arena *arena, int32_t *array0, int32_t *array1, int32_t arra
 }
 
 static void
-draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangle, uint32_t colour)
+draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xc_triangle triangle, xc_colour colour)
 {
-  int32_t const simd_width = get_simd_width ();
+  uint32_t const colour_i = xc_get_colour (colour);
+  int32_t  const simd_width = get_simd_width ();
 
   /* sort vertices so that the first vertex is always at the top */
   if (triangle.vertices[1].y < triangle.vertices[0].y)
@@ -289,11 +297,11 @@ draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangl
         {
           uint32_t *row = &ctx->fb->pixels[y * ctx->fb->width + x_start];
 
-          fill_pixels_unaligned_simd (row, colour, chunks, simd_width);
+          fill_pixels_unaligned_simd (row, colour_i, chunks, simd_width);
 
           for (int32_t x = x_start + (chunks * simd_width); x <= x_end; ++x)
             {
-              put_pixel (ctx, x, y, colour);
+              put_pixel (ctx, x, y, colour_i);
             }
 
           continue;
@@ -302,7 +310,7 @@ draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangl
       /* if I can't use SIMD, draw them individually */
       for (int32_t x = x_start; x <= x_end; ++x)
         {
-          put_pixel (ctx, x, y, colour);
+          put_pixel (ctx, x, y, colour_i);
         }
     }
 
@@ -310,7 +318,7 @@ draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xcr_triangle triangl
 }
 
 static void
-draw_coloured_pixels_interpolated_simd (uint32_t *row, int32_t x, int32_t y, xcr_shaded_triangle *triangle, int32_t chunks, int32_t simd_width)
+draw_coloured_pixels_interpolated_simd (uint32_t *row, int32_t x, int32_t y, xc_shaded_triangle *triangle, int32_t chunks, int32_t simd_width)
 {
   /* most of this comes from that rendering book, whatever the name is, but adapted to SIMD */
 
@@ -432,7 +440,7 @@ draw_coloured_pixels_interpolated_simd (uint32_t *row, int32_t x, int32_t y, xcr
 }
 
 static void
-draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xcr_shaded_triangle *triangle)
+draw_shaded_triangle_filled_simd (xcr_context *ctx, stack_arena *arena, xc_shaded_triangle *triangle)
 {
   f32_t u, v, w;
   int32_t const simd_width = get_simd_width ();
@@ -565,73 +573,85 @@ xcr_set_background_colour (xcr_context *ctx, uint32_t colour)
 }
 
 void
-xcr_draw_line (xcr_context *ctx, xc_vec2i p0, xc_vec2i p1, uint32_t colour)
+xcr_draw_line (xcr_context *ctx, xc_line line, xc_colour colour)
 {
-  draw_line_bresenham (ctx, p0, p1, colour);
+  draw_line_bresenham (ctx, line, colour);
 }
 
 void
-xcr_draw_quad_outline (xcr_context *ctx, xc_vec2i p0, int32_t width, int32_t height, uint32_t colour)
+xcr_draw_quad_outline (xcr_context *ctx, xc_quad quad, xc_colour colour)
 {
-  xc_vec2i p1 = { .x = p0.x,         .y = p0.y + height };
-  xc_vec2i p2 = { .x = p0.x + width, .y = p0.y };
-  xc_vec2i p3 = { .x = p0.x + width, .y = p0.y + height };
+  xc_vec2i const p1 = { .x = quad.position.x,              .y = quad.position.y + quad.height };
+  xc_vec2i const p2 = { .x = quad.position.x + quad.width, .y = quad.position.y };
+  xc_vec2i const p3 = { .x = quad.position.x + quad.width, .y = quad.position.y + quad.height };
 
-  xcr_draw_line (ctx, p0, p2, colour);
-  xcr_draw_line (ctx, p0, p1, colour);
-  xcr_draw_line (ctx, p1, p3, colour);
-  xcr_draw_line (ctx, p3, p2, colour);
+  xc_line const line02 = { quad.position, p2 };
+  xc_line const line01 = { quad.position, p1 };
+  xc_line const line13 = { p1, p3 };
+  xc_line const line32 = { p3, p2 };
+
+  xcr_draw_line (ctx, line02, colour);
+  xcr_draw_line (ctx, line01, colour);
+  xcr_draw_line (ctx, line13, colour);
+  xcr_draw_line (ctx, line32, colour);
 }
 
 void
-xcr_draw_triangle_outline (xcr_context *ctx, xcr_triangle triangle, uint32_t colour)
+xcr_draw_triangle_outline (xcr_context *ctx, xc_triangle triangle, xc_colour colour)
 {
-  xcr_draw_line (ctx, triangle.vertices[0], triangle.vertices[1], colour);
-  xcr_draw_line (ctx, triangle.vertices[1], triangle.vertices[2], colour);
-  xcr_draw_line (ctx, triangle.vertices[2], triangle.vertices[0], colour);
+  xc_line const line01 = { triangle.vertices[0], triangle.vertices[1] };
+  xc_line const line12 = { triangle.vertices[1], triangle.vertices[2] };
+  xc_line const line20 = { triangle.vertices[2], triangle.vertices[1] };
+
+  xcr_draw_line (ctx, line01, colour);
+  xcr_draw_line (ctx, line12, colour);
+  xcr_draw_line (ctx, line20, colour);
 }
 
 void
-xcr_draw_circle_outline (xcr_context *ctx, xc_vec2i circle_center, int32_t radius, uint32_t colour)
+xcr_draw_circle_outline (xcr_context *ctx, xc_circle circle, xc_colour colour)
 {
-  draw_circle_midpoint (ctx, circle_center, radius, colour);
+  draw_circle_midpoint (ctx, circle, colour);
 }
 
 void
-xcr_draw_quad_filled (xcr_context *ctx, xc_vec2i p, int32_t width, int32_t height, uint32_t colour)
+xcr_draw_quad_filled (xcr_context *ctx, xc_quad quad, xc_colour colour)
 {
-  int32_t const x_start = XC_MAX (p.x, 0);
-  int32_t const y_start = XC_MAX (p.y, 0);
+  uint32_t const colour_i = xc_get_colour (colour);
+  int32_t  const x_start = XC_MAX (quad.position.x, 0);
+  int32_t  const y_start = XC_MAX (quad.position.y, 0);
 
-  /* careful not to go outside boundaries */
-  int32_t const y_max = XC_MIN (p.y + height, ctx->fb->height - 1);
-  int32_t const x_max = XC_MIN (p.x + width, ctx->fb->width - 1);
+  /* bounds checking */
+  int32_t const y_max = XC_MIN (quad.position.y + quad.height, ctx->fb->height - 1);
+  int32_t const x_max = XC_MIN (quad.position.x + quad.width,  ctx->fb->width - 1);
 
   for (int32_t y = y_start; y <= y_max; ++y)
     {
+      /* SPEED: this can be optimised with SIMD */
       for (int32_t x = x_start; x <= x_max; ++x)
         {
-          put_pixel (ctx, x, y, colour);
+          put_pixel (ctx, x, y, colour_i);
         }
     }
 }
 
 void
-xcr_draw_triangle_filled (xcr_context *ctx, stack_arena *arena, xcr_triangle triangle, uint32_t colour)
+xcr_draw_triangle_filled (xcr_context *ctx, stack_arena *arena, xc_triangle triangle, xc_colour colour)
 {
   draw_triangle_filled (arena, ctx, triangle, colour);
 }
 
 void
-xcr_draw_circle_filled (xcr_context *ctx, xc_vec2i circle_center, int32_t radius, uint32_t colour)
+xcr_draw_circle_filled (xcr_context *ctx, xc_circle circle, xc_colour colour)
 {
-  int32_t const radius_squared = radius * radius;
-  int32_t const y_start = XC_MAX (circle_center.y - radius, 0);
-  int32_t const y_end = XC_MIN (circle_center.y + radius, ctx->fb->height - 1);
+  uint32_t const colour_i = xc_get_colour (colour);
+  int32_t  const radius_squared = circle.radius * circle.radius;
+  int32_t  const y_start = XC_MAX (circle.center.y - circle.radius, 0);
+  int32_t  const y_end = XC_MIN (circle.center.y + circle.radius, ctx->fb->height - 1);
 
   for (int32_t y = y_start; y <= y_end; ++y)
     {
-      int32_t dy = y - circle_center.y;
+      int32_t dy = y - circle.center.y;
       int32_t width_squared = radius_squared - (dy * dy);
 
       if (width_squared < 0)
@@ -640,18 +660,18 @@ xcr_draw_circle_filled (xcr_context *ctx, xc_vec2i circle_center, int32_t radius
         }
 
       int32_t width = (int32_t) xc_sqrt ((f32_t) width_squared);
-      int32_t x_start = XC_MAX (circle_center.x - width, 0);
-      int32_t x_end = XC_MIN (circle_center.x + width, ctx->fb->width - 1);
+      int32_t x_start = XC_MAX (circle.center.x - width, 0);
+      int32_t x_end = XC_MIN (circle.center.x + width, ctx->fb->width - 1);
 
       for (int32_t x = x_start; x <= x_end; ++x)
         {
-          put_pixel (ctx, x, y, colour);
+          put_pixel (ctx, x, y, colour_i);
         }
     }
 }
 
 void
-xcr_draw_shaded_triangle_filled (xcr_context *ctx, stack_arena *arena, xcr_shaded_triangle *triangle)
+xcr_draw_shaded_triangle_filled (xcr_context *ctx, stack_arena *arena, xc_shaded_triangle *triangle)
 {
   draw_shaded_triangle_filled_simd (ctx, arena, triangle);
 }

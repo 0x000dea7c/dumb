@@ -169,7 +169,7 @@ game_framebuffer_init (void)
 {
   game_framebuffer.width       = game_config.width;
   game_framebuffer.height      = game_config.height;
-  game_framebuffer.pitch       = game_framebuffer.width * sizeof(uint32_t);
+  game_framebuffer.pitch       = game_framebuffer.width * (int32_t) sizeof(uint32_t);
   game_framebuffer.pixel_count = (uint32_t) game_framebuffer.width * (uint32_t) game_framebuffer.height;
   game_framebuffer.byte_size   = game_framebuffer.pixel_count * sizeof (uint32_t);
   game_framebuffer.simd_chunks = (int32_t) (game_framebuffer.pixel_count / 8);

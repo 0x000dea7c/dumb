@@ -23,4 +23,6 @@ typedef enum xc_colour_preset
 
 uint32_t xc_preset_colour (xc_colour_preset);
 
+uint32_t xc_get_colour (xc_colour);
+
 #endif

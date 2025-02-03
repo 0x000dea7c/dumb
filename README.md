@@ -99,8 +99,15 @@ Game inspired by XCaliber from TempleOS.
 - Clipping for all primitives: once I have the camera and world coordinates, start with clipping stuff that won't be seen by the player so that I save computational power
 - Add support for textures: textured triangles, quads or circles
 - Particle systems: some visual effects like thrusters and explosions are good; particles that fade over time, small points or quads...
-- Batch draw calls
+- Batch draw calls or something... I think drawing triangles individually isn't very good
 - Spaceship controls, shooting, projectile spawning
 - Collision detection
 - Enemy AI
 - Health system, scoring and game states
+
+# Annotations
+
+- SPEED
+- XXX
+- FIXME
+- TODO
