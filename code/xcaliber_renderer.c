@@ -27,10 +27,10 @@ put_pixel (xcr_context *ctx, int32_t x, int32_t y, uint32_t colour)
 {
   if (!(x >= 0 && y >= 0 && x <= ctx->fb->width && y <= ctx->fb->height))
     {
-      return;
 #ifdef DEBUG
       assert (false && "framebuffer out of bounds!");
 #endif
+      return;
     }
   ctx->fb->pixels[y * ctx->fb->width + x] = colour;
 }
