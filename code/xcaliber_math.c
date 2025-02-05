@@ -161,11 +161,11 @@ xc_barycentric (xc_vec2i p, xc_vec2i triangle[3], f32_t *u, f32_t *v, f32_t *w)
 f32_t
 xc_sin (f32_t radians)
 {
-  return sin (radians);
+  return sinf (radians);
 }
 
 inline f32_t
 xc_cos (f32_t radians)
 {
-  return cos (radians);
+  return cosf (radians);
 }
