@@ -7,8 +7,6 @@
 #include <assert.h>
 #include <immintrin.h>
 
-typedef u8 pixel_mask;
-
 static inline i32
 get_simd_width (void)
 {
