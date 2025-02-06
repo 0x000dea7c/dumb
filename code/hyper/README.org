@@ -1,0 +1,7 @@
+* Hyper
+
+** game (game update and render logic)
+
+** core (low level utilities)
+
+** renderer (rendering system)

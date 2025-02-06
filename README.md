@@ -97,7 +97,7 @@ Game inspired by XCaliber from TempleOS.
 - X Transformations (rotation, scale, translation)
 - Use commands instead of different shapes and functions and stuff. A command is basically a data structure that contains all the information
   the renderer needs in order to draw something. It's useful for batching as well
-
+- Clearly separate game and engine
 - Abstract coordinate systems: right now I'm specifying every position with pixel values, but that's problematic. When the game world is created, I need to specify positions with floating point values. To handle physics and a myriad of other things this is also useful
 - Clipping for all primitives: once I have the camera and world coordinates, start with clipping stuff that won't be seen by the player so that I save computational power
 - Game objects need to be passed somehow to the game logic module
@@ -115,3 +115,7 @@ Game inspired by XCaliber from TempleOS.
 - XXX
 - FIXME
 - TODO
+
+# Engine
+
+- It's called hyper

@@ -6,21 +6,42 @@ CC_FLAGS_RELEASE := -O3 -g -ffast-math -funroll-loops -flto -march=native
 # NOTE: Hidden symbols by default, I think that reduces the size of the
 # generated binary, which is nice
 SHARED_FLAGS     := -shared -fPIC -fvisibility=hidden
-GAME_LIB_SOURCES := code/xcaliber_game_logic.c code/xcaliber_renderer.c code/xcaliber_linear_arena.c code/xcaliber_math.c code/xcaliber_colour.c code/xcaliber_stack_arena.c code/xcaliber_transform.c code/xcaliber_draw_command.c
-SOURCES          := $(filter-out code/xcaliber_game_logic.c, $(wildcard code/*.c))
-OBJECTS          := $(SOURCES:code/%.c=obj/%.o)
-TARGET           := xcaliber
-GAME_LIB         := libgamelogic.so
-LD_FLAGS         := -lSDL3 -ldl -lm
+INCLUDE_DIRS     := $(shell find code/hyper -type d)
+INCLUDE_FLAGS    := $(addprefix -I, $(INCLUDE_DIRS))
+
+# TODO: this is temporary because I don't know how the structure will be
+
+# these are the sources for hot reloading
+GAME_LIB_SOURCES := code/hyper/game/hyper_game_logic.c \
+code/hyper/renderer/hyper_renderer.c \
+code/hyper/core/hyper_linear_arena.c \
+code/hyper/core/hyper_math.c \
+code/hyper/core/hyper_colour.c \
+code/hyper/core/hyper_stack_arena.c
+
+# all engine and game sources
+SOURCES := code/hyper/game/hyper_game_logic.c \
+code/hyper/renderer/hyper_renderer.c \
+code/hyper/core/hyper_hot_reload.c \
+code/hyper/core/hyper_linear_arena.c \
+code/hyper/core/hyper_math.c \
+code/hyper/core/hyper_colour.c \
+code/hyper/core/hyper_stack_arena.c \
+code/xcaliber_gnulinux.c
+
+OBJECTS := $(SOURCES:code/%.c=obj/%.o)
+TARGET  := xcaliber
+GAME_LIB := libgamelogic.so
+LD_FLAGS := -lSDL3 -ldl -lm
 
 $(shell mkdir -p obj)
 
 all: release
 
-release: CC_FLAGS := $(CC_FLAGS_WARN) $(CC_FLAGS_RELEASE)
+release: CC_FLAGS := $(CC_FLAGS_WARN) $(CC_FLAGS_RELEASE) $(INCLUDE_FLAGS)
 release: $(TARGET) $(GAME_LIB)
 
-debug: CC_FLAGS := $(CC_FLAGS_WARN) $(CC_FLAGS_DEBUG)
+debug: CC_FLAGS := $(CC_FLAGS_WARN) $(CC_FLAGS_DEBUG) $(INCLUDE_FLAGS)
 debug: $(TARGET) $(GAME_LIB)
 
 $(TARGET): $(OBJECTS)
@@ -30,6 +51,7 @@ $(GAME_LIB): $(GAME_LIB_SOURCES)
 	$(CC) $(CC_FLAGS) $(SHARED_FLAGS) $^ -o $@
 
 obj/%.o: code/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CC_FLAGS) -c $< -o $@ $(LD_FLAGS)
 
 # XXX: LD_LIBRARY_PATH is needed here because SDL3 installs in /usr/local/lib,

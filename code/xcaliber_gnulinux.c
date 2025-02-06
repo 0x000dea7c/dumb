@@ -1,18 +1,18 @@
-#include "xcaliber.h"
-#include "xcaliber_common.h"
-#include "xcaliber_hot_reload.h"
-#include "xcaliber_linear_arena.h"
-#include "xcaliber_stack_arena.h"
-#include "xcaliber_renderer.h"
-#include "xcaliber_math.h"
+#include "hyper.h"
+#include "hyper_common.h"
+#include "hyper_hot_reload.h"
+#include "hyper_linear_arena.h"
+#include "hyper_stack_arena.h"
+#include "hyper_renderer.h"
+#include "hyper_math.h"
 
-#include <stdint.h>
+#include <SDL3/SDL.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
-#define XC_GAME_TOTAL_MEMORY XC_MEGABYTES(256ull)
-#define XC_SCRATCH_MEMORY XC_MEGABYTES(32ull)
+#define TOTAL_MEMORY HYPER_MEGABYTES(256ull)
+#define SCRATCH_MEMORY HYPER_MEGABYTES(32ull)
 #define FIXED_TIMESTEP 1.0f / 60.0f
 #define GAME_LOGIC_SHARED_LIBRARY_NAME "libgamelogic.so"
 
@@ -22,20 +22,18 @@ static SDL_Texture *sdl_texture = NULL;
 static SDL_Renderer *sdl_renderer = NULL;
 
 /* MY globals, hehe */
-static unsigned char *game_memory = NULL;
-static unsigned char *game_scratch_memory = NULL;
-static linear_arena *main_arena = NULL;
-static stack_arena *scratch_arena = NULL;
-static xc_hot_reload_lib_info game_logic_shared_library;
-static xc_context game_context;
-static xc_config game_config;
-static xc_framebuffer game_framebuffer;
+static u8 *game_memory = NULL;
+static u8 *game_scratch_memory = NULL;
 
-static void
-game_math_init (void)
-{
-  xc_math_init ();
-}
+/* TODO: some of these variables should be internal */
+static hyper_linear_arena main_arena;
+static hyper_stack_arena scratch_arena;
+static hyper_hot_reload_library_data game_logic_shared_library;
+static hyper_frame_context game_frame_context;
+static hyper_config game_config;
+static hyper_framebuffer game_framebuffer;
+static hyper_renderer_context game_renderer_context;
+static hyper_vertex_buffer game_vertex_buffer;
 
 static void
 game_quit (void)
@@ -63,16 +61,6 @@ game_quit (void)
   if (game_scratch_memory)
     {
       free (game_scratch_memory);
-    }
-
-  if (main_arena)
-    {
-      linear_arena_destroy (main_arena);
-    }
-
-  if (scratch_arena)
-    {
-      stack_arena_destroy (scratch_arena);
     }
 
   SDL_Quit();
@@ -130,32 +118,26 @@ game_config_init (void)
 static void
 game_memory_init (void)
 {
-  main_arena = linear_arena_create ();
-  assert(main_arena);
-
-  scratch_arena = stack_arena_create ();
-  assert(scratch_arena);
-
-  game_memory = malloc (XC_GAME_TOTAL_MEMORY);
+  game_memory = malloc (TOTAL_MEMORY);
   assert(game_memory);
 
-  game_scratch_memory = malloc (XC_SCRATCH_MEMORY);
+  game_scratch_memory = malloc (SCRATCH_MEMORY);
   assert(game_scratch_memory);
 
-  linear_arena_init (main_arena, game_memory, XC_GAME_TOTAL_MEMORY);
+  hyper_linear_arena_init (&main_arena, game_memory, TOTAL_MEMORY);
 
-  stack_arena_init (scratch_arena, game_scratch_memory, XC_SCRATCH_MEMORY);
+  hyper_stack_arena_init (&scratch_arena, game_scratch_memory, SCRATCH_MEMORY);
 }
 
 static void
-game_context_init (void)
+game_frame_context_init (void)
 {
-  game_context.renderer_ctx = NULL;
-  game_context.physics_accumulator = 0.0f;
-  game_context.fixed_timestep = FIXED_TIMESTEP;
-  game_context.alpha = 0.0f;
-  game_context.running = true;
-  game_context.last_frame_time = SDL_GetTicks ();
+  game_frame_context.renderer_context = &game_renderer_context;
+  game_frame_context.physics_accumulator = 0.0f;
+  game_frame_context.fixed_timestep = FIXED_TIMESTEP;
+  game_frame_context.alpha = 0.0f;
+  game_frame_context.running = true;
+  game_frame_context.last_frame_time = SDL_GetTicks ();
 
   if (game_config.vsync)
     {
@@ -176,11 +158,11 @@ game_framebuffer_init (void)
 {
   game_framebuffer.width       = game_config.width;
   game_framebuffer.height      = game_config.height;
-  game_framebuffer.pitch       = game_framebuffer.width * (int32_t) sizeof(uint32_t);
-  game_framebuffer.pixel_count = (uint32_t) game_framebuffer.width * (uint32_t) game_framebuffer.height;
-  game_framebuffer.byte_size   = game_framebuffer.pixel_count * sizeof (uint32_t);
-  game_framebuffer.simd_chunks = (int32_t) (game_framebuffer.pixel_count / 8);
-  game_framebuffer.pixels      = linear_arena_alloc (main_arena, game_framebuffer.byte_size);
+  game_framebuffer.pitch       = game_framebuffer.width * (i32) sizeof(u32);
+  game_framebuffer.pixel_count = (u32) game_framebuffer.width * (u32) game_framebuffer.height;
+  game_framebuffer.byte_size   = game_framebuffer.pixel_count * sizeof (u32);
+  game_framebuffer.simd_chunks = (i32) (game_framebuffer.pixel_count / 8);
+  game_framebuffer.pixels      = hyper_linear_arena_alloc (&main_arena, game_framebuffer.byte_size);
   if (!game_framebuffer.pixels)
     {
       panic ("framebuffer init", "Couldn't allocate space for the framebuffer");
@@ -188,45 +170,41 @@ game_framebuffer_init (void)
 }
 
 static void
-game_renderer_init (void)
-{
-  game_context.renderer_ctx = xcr_create (main_arena, &game_framebuffer);
-
-  if (!game_context.renderer_ctx)
-    {
-      panic ("game_renderer_init", "Couldn't create renderer");
-    }
-}
-
-static void
 game_hot_reload_init (void)
 {
-  if (!xc_hot_reload_init (&game_logic_shared_library, GAME_LOGIC_SHARED_LIBRARY_NAME))
+  if (!hyper_hot_reload_init (&game_logic_shared_library, GAME_LOGIC_SHARED_LIBRARY_NAME))
     {
       panic ("game_hot_reload_init", "couldn't load game's logic shared library!");
     }
 }
 
+static void
+game_renderer_init (void)
+{
+  game_renderer_context.framebuffer = &game_framebuffer;
+  game_renderer_context.vertex_buffer = &game_vertex_buffer;
+}
+
 void
 game_run (void)
 {
-  uint64_t frame_count = 0;
-  uint64_t last_time = SDL_GetTicks ();
-  uint64_t fps_update_time = last_time;
-  f32_t current_fps = 0.0f;
+  u64 frame_count = 0;
+  u64 last_time = SDL_GetTicks ();
+  u64 fps_update_time = last_time;
+  f32 current_fps = 0.0f;
   char window_title[32];
   SDL_Event event;
 
-  while (game_context.running)
+  while (game_frame_context.running)
     {
       /* check if the lib was modified, if so, reload it. This is non blocking! */
-      if (xc_hot_reload_lib_was_modified())
+      if (hyper_hot_reload_library_was_updated ())
         {
-          xc_hot_reload_update(&game_logic_shared_library);
+          hyper_hot_reload_load (&game_logic_shared_library);
         }
 
-      uint64_t const current_time = SDL_GetTicks();
-      float frame_time = (f32_t)(current_time - last_time) / 1000.0f;
+      u64 const current_time = SDL_GetTicks();
+      float frame_time = (f32)(current_time - last_time) / 1000.0f;
       last_time = current_time;
 
       /* Cap max frame rate, avoid spiral of death, that is to say, constantly trying to catch up
@@ -237,17 +215,29 @@ game_run (void)
         }
 
       /* FPS display every second */
-      uint64_t const time_since_fps_update = current_time - fps_update_time;
+      u64 const time_since_fps_update = current_time - fps_update_time;
       if (time_since_fps_update > 1000)
         {
-          current_fps = (f32_t)frame_count * 1000.0f / (f32_t)time_since_fps_update;
+          current_fps = (f32)frame_count * 1000.0f / (f32)time_since_fps_update;
           (void) snprintf (window_title, sizeof (window_title), "X-Caliber FPS: %.2f", current_fps);
           SDL_SetWindowTitle (sdl_window, window_title);
           frame_count = 0;
           fps_update_time = current_time;
         }
 
-      game_context.physics_accumulator += frame_time;
+      game_frame_context.physics_accumulator += frame_time;
+
+      /* TEMP: make room for the vertex buffer */
+      game_vertex_buffer.positions = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 6);
+      game_vertex_buffer.normals = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 2);
+      game_vertex_buffer.texture_coordinates = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 2);
+      game_vertex_buffer.colours = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 12);
+
+      game_vertex_buffer.positions = (f32 [6]) { -1.0f, -1.0f, 1.0f, -1.0f, 0.5f, 0.5f };
+      game_vertex_buffer.normals = (f32 [2]) { 0.0f, 0.0f };
+      game_vertex_buffer.texture_coordinates = (f32 [2]) { 0.0f, 0.0f };
+      game_vertex_buffer.colours = (f32 [12]) { 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f };
+      game_vertex_buffer.count = 1;
 
       /* process input */
       while (SDL_PollEvent(&event))
@@ -255,7 +245,7 @@ game_run (void)
 
           if (event.type == SDL_EVENT_QUIT)
             {
-              game_context.running = false;
+              game_frame_context.running = false;
               break;
             }
 
@@ -265,10 +255,9 @@ game_run (void)
               switch (key)
                 {
                 case SDLK_ESCAPE:
-                  game_context.running = false;
+                  game_frame_context.running = false;
                   break;
                 case SDLK_Q:
-                  printf("Pressed Q!\n");
                   break;
                 case SDLK_F1:
                   toggle_vsync();
@@ -280,15 +269,15 @@ game_run (void)
         }
 
       /* fixed timestep physics and logic updates */
-      while (game_context.physics_accumulator >= game_context.fixed_timestep)
+      while (game_frame_context.physics_accumulator >= game_frame_context.fixed_timestep)
         {
-          game_logic_shared_library.update (&game_context);
-          game_context.physics_accumulator -= game_context.fixed_timestep;
+          game_logic_shared_library.update (&game_frame_context);
+          game_frame_context.physics_accumulator -= game_frame_context.fixed_timestep;
         }
 
       /* render as fast as possible with interpolation */
-      game_context.alpha = game_context.physics_accumulator / game_context.fixed_timestep;
-      game_logic_shared_library.render (&game_context, scratch_arena);
+      game_frame_context.alpha = game_frame_context.physics_accumulator / game_frame_context.fixed_timestep;
+      game_logic_shared_library.render (&game_frame_context);
 
       /* copy my updated framebuffer to the GPU texture */
       SDL_UpdateTexture (sdl_texture, NULL, game_framebuffer.pixels, game_framebuffer.pitch);
@@ -300,18 +289,17 @@ game_run (void)
 
       ++frame_count;
 
-      stack_arena_free_all (scratch_arena);
+      hyper_stack_arena_free_all (&scratch_arena);
     }
 }
 
 int
 main(void)
 {
-  game_math_init ();
   game_config_init ();
   game_sdl_init();
   game_memory_init ();
-  game_context_init ();
+  game_frame_context_init ();
   game_framebuffer_init ();
   game_renderer_init ();
   game_hot_reload_init ();
