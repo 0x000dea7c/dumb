@@ -200,8 +200,8 @@ draw_circle_midpoint (hyper_framebuffer *framebuffer, i32 center_x, i32 center_y
     }
 }
 
-i32 *
-hyper_interpolate_array (hyper_stack_arena *arena, i32 y0, i32 x0, i32 y1, i32 x1, i32 points)
+static i32 *
+interpolate_array (hyper_stack_arena *arena, i32 y0, i32 x0, i32 y1, i32 x1, i32 points)
 {
   if (y0 > y1)
     {
@@ -231,128 +231,103 @@ hyper_interpolate_array (hyper_stack_arena *arena, i32 y0, i32 x0, i32 y1, i32 x
   return x_values;
 }
 
-void
-hyper_set_background_colour (hyper_renderer_context *context, hyper_colour colour)
+static i32 *
+array_append (hyper_stack_arena *arena, i32 *array0, i32 *array1, u32 array0_length, u32 array1_length)
 {
-  u32 const colour_uint = hyper_get_colour_uint (colour);
-  colourise_pixels_aligned_simd (context->framebuffer->pixels, colour_uint, context->framebuffer->simd_chunks, get_simd_width ());
+  /* appends array1 into array0 */
+  u32 const n = array0_length + array1_length;
+  i32 j = 0;
+
+  array0 = hyper_stack_arena_resize (arena, array0, array0_length * sizeof (i32), (n) * sizeof (i32));
+  assert (array0);
+
+  for (u32 i = array0_length; i < n; ++i)
+    {
+      array0[i] = array1[j++];
+    }
+
+  return array0;
 }
 
-/* static i32 * */
-/* array_append (stack_arena *arena, i32 *array0, i32 *array1, i32 array0_length, i32 array1_length) */
-/* { */
-/*   i32 const n = array0_length + array1_length; */
-/*   i32 j = 0; */
+static void
+draw_triangle_filled (hyper_stack_arena *arena, hyper_framebuffer *framebuffer, hyper_vec3i *triangle, hyper_colour colour)
+{
+  u32 const colour_uint = hyper_get_colour_uint (colour);
+  i32 const simd_width  = get_simd_width ();
 
-/*   array0 = stack_arena_resize (arena, */
-/*                                array0, */
-/*                                (uint64_t) array0_length * sizeof (i32), */
-/*                                (uint64_t) (n) * sizeof (i32)); */
-/*   assert (array0); */
+  /* sort vertices so that the first vertex is always at the top */
+  if (triangle[1].y < triangle[0].y)
+    {
+      HYPER_SWAP (hyper_vec3i, triangle[0], triangle[1]);
+    }
 
-/*   for (i32 i = array0_length; i < n; ++i) */
-/*     { */
-/*       array0[i] = array1[j++]; */
-/*     } */
+  if (triangle[2].y < triangle[0].y)
+    {
+      HYPER_SWAP (hyper_vec3i, triangle[2], triangle[0]);
+    }
 
-/*   return array0; */
-/* } */
+  if (triangle[2].y < triangle[1].y)
+    {
+      HYPER_SWAP (hyper_vec3i, triangle[2], triangle[1]);
+    }
 
-/* static void */
-/* draw_triangle_filled (stack_arena *arena, xcr_context *ctx, xc_triangle triangle, xc_colour colour) */
-/* { */
-/*   u32 const colour_i = xc_get_colour (colour); */
-/*   i32  const simd_width = get_simd_width (); */
+  i32 const x01_length = triangle[1].y - triangle[0].y + 1;
+  i32 const x12_length = triangle[2].y - triangle[1].y + 1;
+  i32 const x02_length = triangle[2].y - triangle[0].y + 1;
 
-/*   /\* sort vertices so that the first vertex is always at the top *\/ */
-/*   if (triangle.vertices[1].y < triangle.vertices[0].y) */
-/*     { */
-/*       XC_SWAP (hyper_vec2i, triangle.vertices[0], triangle.vertices[1]); */
-/*     } */
+  i32 *x01 = interpolate_array (arena, triangle[0].y, triangle[0].x, triangle[1].y, triangle[1].x, x01_length);
+  i32 *x12 = interpolate_array (arena, triangle[1].y, triangle[1].x, triangle[2].y, triangle[2].x, x12_length);
+  i32 *x02 = interpolate_array (arena, triangle[0].y, triangle[0].x, triangle[2].y, triangle[2].x, x02_length);
 
-/*   if (triangle.vertices[2].y < triangle.vertices[0].y) */
-/*     { */
-/*       XC_SWAP (hyper_vec2i, triangle.vertices[2], triangle.vertices[0]); */
-/*     } */
+  /* concatenate short sides */
+  i32 *x012 = array_append (arena, x01, x12, x01_length - 1, x12_length);
 
-/*   if (triangle.vertices[2].y < triangle.vertices[1].y) */
-/*     { */
-/*       XC_SWAP (hyper_vec2i, triangle.vertices[2], triangle.vertices[1]); */
-/*     } */
+  /* determine which array is the left and which one is the right */
+  i32 const mid = (x01_length + x12_length) >> 1;
+  i32 *x_left, *x_right;
 
-/*   i32 const x01_length = triangle.vertices[1].y - triangle.vertices[0].y + 1; */
-/*   i32 const x12_length = triangle.vertices[2].y - triangle.vertices[1].y + 1; */
-/*   i32 const x02_length = triangle.vertices[2].y - triangle.vertices[0].y + 1; */
+  if (x02[mid] < x012[mid])
+    {
+      x_left = x02;
+      x_right = x012;
+    }
+  else
+    {
+      x_left = x012;
+      x_right = x02;
+    }
 
-/*   i32 *x01 = xc_interpolate_array (arena, */
-/*                                        triangle.vertices[0].y, */
-/*                                        triangle.vertices[0].x, */
-/*                                        triangle.vertices[1].y, */
-/*                                        triangle.vertices[1].x, */
-/*                                        x01_length); */
+  for (i32 y = triangle[0].y; y <= triangle[2].y; ++y)
+    {
+      i32 const x_start = x_left[y - triangle[0].y];
+      i32 const x_end   = x_right[y - triangle[0].y];
+      i32 const span    = x_end - x_start + 1;
+      i32 const chunks  = span / simd_width;
 
-/*   i32 *x12 = xc_interpolate_array (arena, */
-/*                                        triangle.vertices[1].y, */
-/*                                        triangle.vertices[1].x, */
-/*                                        triangle.vertices[2].y, */
-/*                                        triangle.vertices[2].x, */
-/*                                        x12_length); */
+      if (chunks > 0)
+        {
+          u32 *row = &framebuffer->pixels[y * framebuffer->width + x_start];
 
-/*   i32 *x02 = xc_interpolate_array (arena, */
-/*                                        triangle.vertices[0].y, */
-/*                                        triangle.vertices[0].x, */
-/*                                        triangle.vertices[2].y, */
-/*                                        triangle.vertices[2].x, */
-/*                                        x02_length); */
+          colourise_pixels_unaligned_simd (row, colour_uint, chunks, simd_width);
 
-/*   /\* concatenate short sides *\/ */
-/*   i32 *x012 = array_append (arena, x01, x12, x01_length - 1, x12_length); */
+          /* leftOvAhRs */
+          for (i32 x = x_start + (chunks * simd_width); x <= x_end; ++x)
+            {
+              colourise_pixel (framebuffer, x, y, colour_uint);
+            }
 
-/*   /\* determine which array is the left and which one is the right *\/ */
-/*   i32 const mid = (x01_length + x12_length) >> 1; */
-/*   i32 *x_left, *x_right; */
+          continue;
+        }
 
-/*   if (x02[mid] < x012[mid]) */
-/*     { */
-/*       x_left = x02; */
-/*       x_right = x012; */
-/*     } */
-/*   else */
-/*     { */
-/*       x_left = x012; */
-/*       x_right = x02; */
-/*     } */
+      /* if I can't use SIMD, colourise individually */
+      for (i32 x = x_start; x <= x_end; ++x)
+        {
+          colourise_pixel (framebuffer, x, y, colour_uint);
+        }
+    }
 
-/*   for (i32 y = triangle.vertices[0].y; y < triangle.vertices[2].y; ++y) */
-/*     { */
-/*       i32 const x_start = x_left[y - triangle.vertices[0].y]; */
-/*       i32 const x_end = x_right[y - triangle.vertices[0].y]; */
-/*       i32 const w = x_end - x_start + 1; */
-/*       i32 const chunks = w / simd_width; */
-
-/*       if (chunks > 0) */
-/*         { */
-/*           u32 *row = &ctx->fb->pixels[y * ctx->fb->width + x_start]; */
-
-/*           fill_pixels_unaligned_simd (row, colour_i, chunks, simd_width); */
-
-/*           for (i32 x = x_start + (chunks * simd_width); x <= x_end; ++x) */
-/*             { */
-/*               put_pixel (ctx, x, y, colour_i); */
-/*             } */
-
-/*           continue; */
-/*         } */
-
-/*       /\* if I can't use SIMD, draw them individually *\/ */
-/*       for (i32 x = x_start; x <= x_end; ++x) */
-/*         { */
-/*           put_pixel (ctx, x, y, colour_i); */
-/*         } */
-/*     } */
-
-/*   stack_arena_free_all (arena); */
-/* } */
+  hyper_stack_arena_free_all (arena);
+}
 
 /* static void */
 /* draw_coloured_pixels_interpolated_simd (u32 *row, i32 x, i32 y, xc_shaded_triangle *triangle, i32 chunks, i32 simd_width) */
@@ -586,3 +561,42 @@ hyper_set_background_colour (hyper_renderer_context *context, hyper_colour colou
 
 /*   stack_arena_free_all (arena); */
 /* } */
+
+void
+hyper_set_background_colour (hyper_renderer_context *context)
+{
+}
+
+void
+hyper_draw (hyper_renderer_context *context)
+{
+  hyper_vertex_buffer *vertex_buffer = context->vertex_buffer;
+
+  switch (vertex_buffer->shape)
+    {
+    case HYPER_TRIANGLE: {
+      for (u32 i = 0; i < vertex_buffer->count; ++i)
+        {
+          hyper_colour colour = hyper_get_colour_from_preset (HYPER_WHITE);
+
+          /* TODO: grab colour and convert from [0.0, 1.0] range to 0-255. Do I need to do that? */
+
+          /* TODO: grab texture coordinates */
+
+          /* TODO: grab normals */
+
+          /* TODO: convert from world space coordinates to view space  */
+
+          /* TODO: convert from view space to clip space */
+
+          /* TODO: convert from clip space to screen space */
+
+          hyper_vec3i screen_coordinates /* vertex_buffer->positions */;
+
+          draw_triangle_filled (context->stack_arena, context->framebuffer, &screen_coordinates, colour);
+        }
+    } break;
+    default:
+      break;
+    }
+}

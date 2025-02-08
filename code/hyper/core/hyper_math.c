@@ -80,3 +80,15 @@ hyper_cos (f32 radians)
 {
   return cosf (radians);
 }
+
+hyper_vec4f
+hyper_mat4x4_vec4f_mul (hyper_mat4x4 *matrix, hyper_vec4f *vector)
+{
+  /* TODO: SIMDify */
+  hyper_vec4f result;
+  result.x = matrix->values[0] * vector->x + matrix->values[1] * vector->y + matrix->values[2] * vector->z + matrix->values[3] * vector->w;
+  result.y = matrix->values[4] * vector->x + matrix->values[5] * vector->y + matrix->values[6] * vector->z + matrix->values[7] * vector->w;
+  result.z = matrix->values[8] * vector->x + matrix->values[9] * vector->y + matrix->values[10] * vector->z + matrix->values[11] * vector->w;
+  result.w = matrix->values[12] * vector->x + matrix->values[13] * vector->y + matrix->values[14] * vector->z + matrix->values[15] * vector->w;
+  return result;
+}

@@ -5,11 +5,10 @@
 HYPER_API void
 hyper_game_update (hyper_frame_context *context)
 {
-
 }
 
 HYPER_API void
 hyper_game_render (hyper_frame_context *context)
 {
-  hyper_set_background_colour (context->renderer_context, hyper_get_colour_from_preset (HYPER_BLACK));
+  hyper_draw (context->renderer_context);
 }

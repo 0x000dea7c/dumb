@@ -2,18 +2,35 @@
 
 #include "hyper_common.h"
 #include "hyper_stack_arena.h"
+#include "hyper_math.h"
+#include "hyper_colour.h"
+
 #include <stdbool.h>
 
-/* TODO: I think some of this stuff doesn't belong here, but I don't
-   have the big picture yet */
+/* typedef enum */
+/* { */
+/*   HYPER_DRAW_FLAGS_FILLED  = 1 << 0, */
+/*   HYPER_DRAW_FLAGS_OUTLINE = 1 << 1, */
+/*   HYPER_DRAW_FLAGS_COLOUR_INTERPOLATED = 1 << 2, */
+/*   HYPER_DRAW_FLAGS_COLOUR_BASE = 1 << 3 */
+/* } hyper_draw_flags; */
+
+typedef enum
+{
+  HYPER_TRIANGLE,
+  HYPER_LINE,
+  HYPER_QUAD,
+  HYPER_CIRCLE,
+} hyper_shape;
 
 typedef struct
 {
-  f32 *positions;
-  f32 *normals;
-  f32 *texture_coordinates;
-  f32 *colours;
+  hyper_vec3f *positions;
+  hyper_vec2f *normals;
+  hyper_vec2f *texture_coordinates;
+  hyper_vec4f *colours;
   u32 count;
+  hyper_shape shape;
 } hyper_vertex_buffer;
 
 typedef struct

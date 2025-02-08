@@ -2,7 +2,7 @@
 
 hyper_colour const preset_colours[] =
   {
-    [HYPER_BLACK]  = { .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 },
+    [HYPER_BLACK]  = { .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF },
     [HYPER_WHITE]  = { .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF },
     [HYPER_RED]    = { .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF },
     [HYPER_GREEN]  = { .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF },

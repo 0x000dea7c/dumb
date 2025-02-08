@@ -183,6 +183,7 @@ game_renderer_init (void)
 {
   game_renderer_context.framebuffer = &game_framebuffer;
   game_renderer_context.vertex_buffer = &game_vertex_buffer;
+  game_renderer_context.stack_arena = &scratch_arena;
 }
 
 void
@@ -194,6 +195,37 @@ game_run (void)
   f32 current_fps = 0.0f;
   char window_title[32];
   SDL_Event event;
+  hyper_mat4x4 model_matrix = {
+    .values = {
+      1.0f, 0.0f, 0.0f, 0.0f,
+      0.0f, 1.0f, 0.0f, 0.0f,
+      0.0f, 0.0f, 1.0f, 0.0f,
+      0.0f, 0.0f, 0.0f, 1.0f
+    }
+  };
+
+  game_vertex_buffer.positions = hyper_linear_arena_alloc (&main_arena, sizeof (game_vertex_buffer.positions) * 3);
+  game_vertex_buffer.normals = hyper_linear_arena_alloc (&main_arena, sizeof (game_vertex_buffer.normals) * 3);
+  game_vertex_buffer.texture_coordinates = hyper_linear_arena_alloc (&main_arena, sizeof (game_vertex_buffer.texture_coordinates) * 3);
+  game_vertex_buffer.colours = hyper_linear_arena_alloc (&main_arena, sizeof (game_vertex_buffer.colours) * 3);
+
+  /* this can probably be in a function */
+  game_vertex_buffer.shape = HYPER_TRIANGLE;
+  game_vertex_buffer.positions = (hyper_vec3f [3]) { { -1.0f, -1.0f, 0.0f }, { 1.0f, -1.0f, 0.0f }, { 0.5f, 0.5f, 0.f } };
+  game_vertex_buffer.normals = (hyper_vec2f [3]) { { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+  game_vertex_buffer.texture_coordinates = (hyper_vec2f [3]) { { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+  game_vertex_buffer.colours = (hyper_vec4f [3]) { { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } };
+  game_vertex_buffer.count = 1;
+
+  /* convert local coordinates to world space */
+  for (u32 i = 0; i < 3; ++i)
+    {
+      hyper_vec4f local_vertex = { game_vertex_buffer.positions[i].x, game_vertex_buffer.positions[i].y, game_vertex_buffer.positions[i].z, 1.0f };
+      hyper_vec4f world_vertex = hyper_mat4x4_vec4f_mul (&model_matrix, &local_vertex);
+      game_vertex_buffer.positions[i].x = world_vertex.x;
+      game_vertex_buffer.positions[i].y = world_vertex.y;
+      game_vertex_buffer.positions[i].z = world_vertex.z;
+    }
 
   while (game_frame_context.running)
     {
@@ -203,8 +235,8 @@ game_run (void)
           hyper_hot_reload_load (&game_logic_shared_library);
         }
 
-      u64 const current_time = SDL_GetTicks();
-      float frame_time = (f32)(current_time - last_time) / 1000.0f;
+      u64 const current_time = SDL_GetTicks ();
+      float frame_time = (f32) (current_time - last_time) / 1000.0f;
       last_time = current_time;
 
       /* Cap max frame rate, avoid spiral of death, that is to say, constantly trying to catch up
@@ -218,7 +250,7 @@ game_run (void)
       u64 const time_since_fps_update = current_time - fps_update_time;
       if (time_since_fps_update > 1000)
         {
-          current_fps = (f32)frame_count * 1000.0f / (f32)time_since_fps_update;
+          current_fps = (f32) frame_count * 1000.0f / (f32) time_since_fps_update;
           (void) snprintf (window_title, sizeof (window_title), "X-Caliber FPS: %.2f", current_fps);
           SDL_SetWindowTitle (sdl_window, window_title);
           frame_count = 0;
@@ -227,22 +259,9 @@ game_run (void)
 
       game_frame_context.physics_accumulator += frame_time;
 
-      /* TEMP: make room for the vertex buffer */
-      game_vertex_buffer.positions = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 6);
-      game_vertex_buffer.normals = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 2);
-      game_vertex_buffer.texture_coordinates = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 2);
-      game_vertex_buffer.colours = (f32 *) hyper_stack_arena_alloc (&scratch_arena, sizeof (f32) * 12);
-
-      game_vertex_buffer.positions = (f32 [6]) { -1.0f, -1.0f, 1.0f, -1.0f, 0.5f, 0.5f };
-      game_vertex_buffer.normals = (f32 [2]) { 0.0f, 0.0f };
-      game_vertex_buffer.texture_coordinates = (f32 [2]) { 0.0f, 0.0f };
-      game_vertex_buffer.colours = (f32 [12]) { 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f };
-      game_vertex_buffer.count = 1;
-
       /* process input */
       while (SDL_PollEvent(&event))
         {
-
           if (event.type == SDL_EVENT_QUIT)
             {
               game_frame_context.running = false;
