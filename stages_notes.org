@@ -1,0 +1,94 @@
+* Stages
+
+** Application (CPU)
+
+Animations, etc.
+
+Physics updates, computes where stuff should be. The output of this stage is the geometry that has to be rendered. The geometry information has to be passed to the next stage somehow. These are the primitives.
+
+How? Vertex buffers?
+
+Apparently, this stage is usually parallelised.
+
+Goal for me: figure out how to pass this information correctly.
+
+** Geometry (GPU)
+
+Transforms, projections, etc.
+
+Transforming world space coordinates to the rest of coordinate systems, applying a myriad of techniques along the way, e.g. clipping and such.
+
+Can be divided into more stages (interdependent):
+
+*** model and view transform
+
+Model space or local space is the system coordinate relative to the object. In this system, transformations aren't yet applied to the object.
+
+When I multiply the object's vertices with the model matrix, vertices are transformed to world coordinates.
+
+The game has a camera or observer. The camera has a location (and direction) within the world and everything is seen using its perspective. That's the case in 3D, however in 2D the camera is always fixed. Objects that don't appear on its FOV are clipped.
+
+When I multiply the object's vertices by the view matrix, we're at camera space or view space.
+
+*** vertex shading
+
+Light effects (not dealing with this at the moment).
+
+*** projection
+
+Transforms the view volume (volume of the piramid) into a unit cube (-1, -1, -1) to (1, 1, 1). This unit cube is called the canonical view volume.
+
+- Orthographic (2D, 2.5D)
+- Perspective (3D) I'm not going to use this one for now
+
+Applying either of those two projection matrices transforms the coordinates to normalised device coordinates. After applying this transformation, the z-coordinate is not stored in the image generated! (the Z coordinate is stored in the Z buffer)
+
+*** clipping
+
+Primitives that are wholly or partially inside the view volume are the ones that need to get rasterised, the rest should be clipped for performance reasons.
+
+The stuff that is hard to clip are the objects that are partially inside the view volume. This means creating more vertices... sigh! Complex.
+
+The ones that are completely outside should be trivial?
+
+*** screen mapping
+
+This stage receives only the clipped primitives that reside inside the view volume.
+
+The (x, y) primitives coordinates are transformed to screen coordinates.
+
+These new coordinates should be within the bounds of the framebuffer. The Z coordinate also gets passed.
+
+!! Floating point to integer conversion !!
+
+I have a horizontal array of pixels. The left edge of the leftmost pixel is 0.0; the center of this pixel is 0.5. So:
+
+d = floor (c)
+c = d + 0.5
+
+d -> discrete integer index of the pixel
+c -> continuous (floating point) value within the pixel
+
+This is what OpenGL does. Decide what is my (0, 0) point: upper left or bottom left?
+
+** Rasterisation (GPU)
+
+Draw stuff onto framebuffer, interpolation gets done here! It also deal with the Z buffer.
+
+*** triangle setup
+
+Figuring out the slope of the triangle? and stuff like that? I don't know.
+
+*** triangle traversal
+
+Figuring out which pixels are inside the triangle. Fragments are generated here; they are potential pixels that need to be drawn and contain colour, depth, texture coordinates and perhaps lighting data, etc.
+
+If the pixel is inside the triangle, a fragment is generated.
+
+*** pixel shading
+
+Per-pixel shading is done here, using the interpolated shading data as input and producing one or more colours that get passed onto the next stage.
+
+*** merging
+
+Final colours are computed here. Somehow it combines colours stored in a colour buffer, the Z buffer (depth) and more possible buffers. Using the double buffer technique ensures I don't experience tearing.

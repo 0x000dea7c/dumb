@@ -1,7 +1,7 @@
 # -fsanitize=address,leak,undefined -D_FORTIFY_SOURCE=2 (interferes with O0)
 CC               := gcc
 CC_FLAGS_WARN    := -Wall -Wextra -pedantic -Wformat -Wformat-security -Wconversion -Wshadow
-CC_FLAGS_DEBUG   := -O0 -ggdb3 -fstack-clash-protection -fcf-protection=full -march=native -DDEBUG
+CC_FLAGS_DEBUG   := -O0 -ggdb3 -fstack-clash-protection -fcf-protection=full -march=native -DDEBUG -pg
 CC_FLAGS_RELEASE := -O3 -g -ffast-math -funroll-loops -flto -march=native
 # NOTE: Hidden symbols by default, I think that reduces the size of the
 # generated binary, which is nice
